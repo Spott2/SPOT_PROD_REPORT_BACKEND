@@ -565,9 +565,7 @@ export class ReportsService {
               date: formattedDate.toISOString().split('T')[0], 
             });
           }
-
           const entryCount = await entryCountQuery.getRawOne();
-
           const exitCountQuery = this.qrRepository
             .createQueryBuilder('qr')
             .where('qr.destination_id = :destinationId', {
