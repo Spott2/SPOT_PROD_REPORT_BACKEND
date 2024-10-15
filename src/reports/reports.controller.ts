@@ -1,22 +1,200 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 
 @Controller('reports')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService)
-  {}
+  constructor(private readonly reportsService: ReportsService) {}
 
   @Post()
   create(@Body() createReportDto: CreateReportDto) {
     return this.reportsService.create(createReportDto);
   }
 
-  @Get('find-all')
-  findAll() {
-    return this.reportsService.findAll();
+  @Post('find-monthly-pagination')
+  findAllMonthlyPagination(
+    @Body()
+    body: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      orderId?: string;
+      transactionType?: string;
+      page?: number;
+      limit?: number;
+      paymentMode?: string;
+    },
+  ) {
+    return this.reportsService.findAllMonthlyPagination({
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      orderId: body.orderId,
+      transactionType: body.transactionType,
+      page: body.page,
+      limit: body.limit,
+      paymentMode: body.paymentMode,
+    });
   }
+
+  @Post('find-monthly')
+  findAllMonthly(
+    @Body()
+    body: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      orderId?: string;
+      transactionType?: string;
+      paymentMode?: string;
+    },
+  ) {
+    return this.reportsService.findAllMonthly({
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      orderId: body.orderId,
+      transactionType: body.transactionType,
+      paymentMode: body.paymentMode,
+    });
+  }
+
+    @Post('find-daily-pagination')
+  findAllDailyPagination(
+    @Body()
+    body: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      orderId?: string;
+      transactionType?: string;
+      page?: number;
+      limit?: number;
+      paymentMode?: string;
+    },
+  ) {
+    return this.reportsService.findAllDailyPagination({
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      orderId: body.orderId,
+      transactionType: body.transactionType,
+      page: body.page,
+      limit: body.limit,
+      paymentMode: body.paymentMode,
+    });
+  }
+
+  @Post('find-daily')
+  findAllDaily(
+    @Body()
+    body: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      orderId?: string;
+      transactionType?: string;
+      paymentMode?: string;
+    },
+  ) {
+    return this.reportsService.findAllDaily({
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      orderId: body.orderId,
+      transactionType: body.transactionType,
+      paymentMode: body.paymentMode,
+    });
+  }
+
+  @Post('find-hourly-pagination')
+  findAllHourlyPagination(
+    @Body()
+    body: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      orderId?: string;
+      transactionType?: string;
+      page?: number;
+      limit?: number;
+      paymentMode?: string;
+    },
+  ) {
+    return this.reportsService.findAllHourlyPagination({
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      orderId: body.orderId,
+      transactionType: body.transactionType,
+      page: body.page,
+      limit: body.limit,
+      paymentMode: body.paymentMode,
+    });
+  }
+
+  @Post('find-hourly')
+  findAllHourly(
+    @Body()
+    body: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      orderId?: string;
+      transactionType?: string;
+      paymentMode?: string;
+    },
+  ) {
+    return this.reportsService.findAllHourly({
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      orderId: body.orderId,
+      transactionType: body.transactionType,
+      paymentMode: body.paymentMode,
+    });
+  }
+  @Post('find-all-pagination')
+  findAllPagination(
+    @Body()
+    body: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      orderId?: string;
+      transactionType?: string;
+      page?: number;
+      limit?: number;
+      paymentMode?: string;
+    },
+  ) {
+    return this.reportsService.findAllPagination({
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      orderId: body.orderId,
+      transactionType: body.transactionType,
+      page: body.page,
+      limit: body.limit,
+      paymentMode: body.paymentMode,
+    });
+  }
+
+  @Post('find-all')
+  findAll(
+    @Body()
+    body: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      orderId?: string;
+      transactionType?: string;
+      paymentMode?: string;
+    },
+  ) {
+    return this.reportsService.findAll({
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      orderId: body.orderId,
+      transactionType: body.transactionType,
+      paymentMode: body.paymentMode,
+    });
+  }
+
 
   @Get(':id')
   findOne(@Param('id') id: string) {
