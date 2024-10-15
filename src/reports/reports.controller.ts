@@ -6,6 +6,9 @@ import {
   Patch,
   Param,
   Delete,
+  HttpException,
+  HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
@@ -193,6 +196,16 @@ export class ReportsController {
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
     });
+  }
+
+  @Post('find-station')
+  async getStations(@Query('date') date?: string) {
+    try {
+      const result = await this.reportsService.Ridership(date);
+      return result;
+    } catch (error) {
+      throw new HttpException('Failed to retrieve station data', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
 

@@ -3,7 +3,7 @@ import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { TransactionQr } from '@spot-demo/shared-entities';
+import { Station, TransactionQr } from '@spot-demo/shared-entities';
 import { Qr } from '@spot-demo/shared-entities';
 
 @Injectable()
@@ -14,6 +14,9 @@ export class ReportsService {
 
     @InjectRepository(Qr)
     private qrRepository: Repository<Qr>,
+
+    @InjectRepository(Station)
+    private stationRepository: Repository<Station>,
   ) {}
   create(createReportDto: CreateReportDto) {
     return 'This action adds a new report';
@@ -100,13 +103,8 @@ export class ReportsService {
     transactionType?: string;
   }) {
     try {
-      const {
-        fromDate,
-        toDate,
-        orderId,
-        paymentMode,
-        transactionType,
-      } = queryParams;
+      const { fromDate, toDate, orderId, paymentMode, transactionType } =
+        queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
@@ -236,13 +234,8 @@ export class ReportsService {
     transactionType?: string;
   }) {
     try {
-      const {
-        fromDate,
-        toDate,
-        orderId,
-        paymentMode,
-        transactionType,
-      } = queryParams;
+      const { fromDate, toDate, orderId, paymentMode, transactionType } =
+        queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
@@ -373,13 +366,8 @@ export class ReportsService {
     transactionType?: string;
   }) {
     try {
-      const {
-        fromDate,
-        toDate,
-        orderId,
-        paymentMode,
-        transactionType,
-      } = queryParams;
+      const { fromDate, toDate, orderId, paymentMode, transactionType } =
+        queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
@@ -509,13 +497,8 @@ export class ReportsService {
     transactionType?: string;
   }) {
     try {
-      const {
-        fromDate,
-        toDate,
-        orderId,
-        paymentMode,
-        transactionType,
-      } = queryParams;
+      const { fromDate, toDate, orderId, paymentMode, transactionType } =
+        queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
@@ -561,6 +544,61 @@ export class ReportsService {
         success: false,
         message: 'Failed to retrieve transactions',
         error: error.message,
+      };
+    }
+  }
+
+  async Ridership(date?: string) {
+    try {
+      const stations = await this.stationRepository.find();
+      const formattedDate = date ? new Date(date) : null;
+
+      const stationData = await Promise.all(
+        stations.map(async (station) => {
+          const entryCountQuery = this.qrRepository
+            .createQueryBuilder('qr')
+            .where('qr.source_id = :sourceId', { sourceId: station.id })
+            .select('SUM(qr.entry_count)', 'totalEntryCount');
+
+          if (formattedDate) {
+            entryCountQuery.andWhere('DATE(qr.created_at) = :date', {
+              date: formattedDate.toISOString().split('T')[0], 
+            });
+          }
+
+          const entryCount = await entryCountQuery.getRawOne();
+
+          const exitCountQuery = this.qrRepository
+            .createQueryBuilder('qr')
+            .where('qr.destination_id = :destinationId', {
+              destinationId: station.id,
+            })
+            .select('SUM(qr.exit_count)', 'totalExitCount');
+
+          if (formattedDate) {
+            exitCountQuery.andWhere('DATE(qr.created_at) = :date', {
+              date: formattedDate.toISOString().split('T')[0], 
+            });
+          }
+
+          const exitCount = await exitCountQuery.getRawOne();
+
+          return {
+            ...station,
+            entryCount: entryCount?.totalEntryCount || 0,
+            exitCount: exitCount?.totalExitCount || 0, 
+          };
+        }),
+      );
+
+      return {
+        success: true,
+        data: stationData,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve stations and counts',
       };
     }
   }
