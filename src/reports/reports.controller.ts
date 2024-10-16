@@ -198,10 +198,10 @@ export class ReportsController {
     });
   }
 
-  @Post('find-station')
-  async getStations(@Query('date') date?: string) {
+  @Get('find-station')
+  async getStations() {
     try {
-      const result = await this.reportsService.Ridership(date);
+      const result = await this.reportsService.Ridership();
       return result;
     } catch (error) {
       throw new HttpException('Failed to retrieve station data', HttpStatus.INTERNAL_SERVER_ERROR);

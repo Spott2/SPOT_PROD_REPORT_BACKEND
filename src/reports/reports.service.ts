@@ -103,8 +103,13 @@ export class ReportsService {
     transactionType?: string;
   }) {
     try {
-      const { fromDate, toDate, orderId, paymentMode, transactionType } =
-        queryParams;
+      const {
+        fromDate,
+        toDate,
+        orderId,
+        paymentMode,
+        transactionType,
+      } = queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
@@ -234,8 +239,13 @@ export class ReportsService {
     transactionType?: string;
   }) {
     try {
-      const { fromDate, toDate, orderId, paymentMode, transactionType } =
-        queryParams;
+      const {
+        fromDate,
+        toDate,
+        orderId,
+        paymentMode,
+        transactionType,
+      } = queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
@@ -366,8 +376,13 @@ export class ReportsService {
     transactionType?: string;
   }) {
     try {
-      const { fromDate, toDate, orderId, paymentMode, transactionType } =
-        queryParams;
+      const {
+        fromDate,
+        toDate,
+        orderId,
+        paymentMode,
+        transactionType,
+      } = queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
@@ -497,8 +512,13 @@ export class ReportsService {
     transactionType?: string;
   }) {
     try {
-      const { fromDate, toDate, orderId, paymentMode, transactionType } =
-        queryParams;
+      const {
+        fromDate,
+        toDate,
+        orderId,
+        paymentMode,
+        transactionType,
+      } = queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
@@ -548,47 +568,32 @@ export class ReportsService {
     }
   }
 
-  async Ridership(date?: string) {
+  async Ridership() {
     try {
       const stations = await this.stationRepository.find();
-      const formattedDate = date ? new Date(date) : null;
-
+  
       const stationData = await Promise.all(
         stations.map(async (station) => {
-          const entryCountQuery = this.qrRepository
+          const entryCount = await this.qrRepository
             .createQueryBuilder('qr')
             .where('qr.source_id = :sourceId', { sourceId: station.id })
-            .select('SUM(qr.entry_count)', 'totalEntryCount');
-
-          if (formattedDate) {
-            entryCountQuery.andWhere('DATE(qr.created_at) = :date', {
-              date: formattedDate.toISOString().split('T')[0], 
-            });
-          }
-          const entryCount = await entryCountQuery.getRawOne();
-          const exitCountQuery = this.qrRepository
+            .select('SUM(qr.entry_count)', 'totalEntryCount')
+            .getRawOne();
+  
+          const exitCount = await this.qrRepository
             .createQueryBuilder('qr')
-            .where('qr.destination_id = :destinationId', {
-              destinationId: station.id,
-            })
-            .select('SUM(qr.exit_count)', 'totalExitCount');
-
-          if (formattedDate) {
-            exitCountQuery.andWhere('DATE(qr.created_at) = :date', {
-              date: formattedDate.toISOString().split('T')[0], 
-            });
-          }
-
-          const exitCount = await exitCountQuery.getRawOne();
-
+            .where('qr.destination_id = :destinationId', { destinationId: station.id })
+            .select('SUM(qr.exit_count)', 'totalExitCount')
+            .getRawOne();
+  
           return {
             ...station,
-            entryCount: entryCount?.totalEntryCount || 0,
-            exitCount: exitCount?.totalExitCount || 0, 
+            entryCount: entryCount.totalEntryCount || 0, 
+            exitCount: exitCount.totalExitCount || 0,    
           };
-        }),
+        })
       );
-
+  
       return {
         success: true,
         data: stationData,
@@ -597,9 +602,11 @@ export class ReportsService {
       return {
         success: false,
         message: 'Failed to retrieve stations and counts',
+        error: error.message,
       };
     }
   }
+  
 
   findOne(id: number) {
     return `This action returns a #${id} report`;
