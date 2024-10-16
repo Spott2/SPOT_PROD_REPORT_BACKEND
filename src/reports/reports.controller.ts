@@ -67,7 +67,7 @@ export class ReportsController {
     });
   }
 
-    @Post('find-daily-pagination')
+  @Post('find-daily-pagination')
   findAllDailyPagination(
     @Body()
     body: {
@@ -198,16 +198,27 @@ export class ReportsController {
     });
   }
 
-  @Get('find-station')
-  async getStations() {
+  @Post('find-station')
+  async getStations(
+    @Body() 
+    body: { 
+      fromDate: Date | string; 
+      toDate: Date | string;
+    },
+  ) {
     try {
-      const result = await this.reportsService.Ridership();
+      const fromDate = body.fromDate ? new Date(body.fromDate) : null;
+      const toDate = body.toDate ? new Date(body.toDate) : null;
+
+      const result = await this.reportsService.Ridership(fromDate, toDate);
       return result;
     } catch (error) {
-      throw new HttpException('Failed to retrieve station data', HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        'Failed to retrieve station data',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
-
 
   @Get(':id')
   findOne(@Param('id') id: string) {

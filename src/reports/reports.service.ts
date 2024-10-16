@@ -568,32 +568,73 @@ export class ReportsService {
     }
   }
 
-  async Ridership() {
+  // async Ridership() {
+  //   try {
+  //     const stations = await this.stationRepository.find();
+  
+  //     const stationData = await Promise.all(
+  //       stations.map(async (station) => {
+  //         const entryCount = await this.qrRepository
+  //           .createQueryBuilder('qr')
+  //           .where('qr.source_id = :sourceId', { sourceId: station.id })
+  //           .select('SUM(qr.entry_count)', 'totalEntryCount')
+  //           .getRawOne();
+  
+  //         const exitCount = await this.qrRepository
+  //           .createQueryBuilder('qr')
+  //           .where('qr.destination_id = :destinationId', { destinationId: station.id })
+  //           .select('SUM(qr.exit_count)', 'totalExitCount')
+  //           .getRawOne();
+  
+  //         return {
+  //           ...station,
+  //           entryCount: entryCount.totalEntryCount || 0, 
+  //           exitCount: exitCount.totalExitCount || 0,    
+  //         };
+  //       })
+  //     );
+  
+  //     return {
+  //       success: true,
+  //       data: stationData,
+  //     };
+  //   } catch (error) {
+  //     return {
+  //       success: false,
+  //       message: 'Failed to retrieve stations and counts',
+  //       error: error.message,
+  //     };
+  //   }
+  // }
+
+  async Ridership(fromDate: Date, toDate: Date) {
     try {
       const stations = await this.stationRepository.find();
-  
+    
       const stationData = await Promise.all(
         stations.map(async (station) => {
           const entryCount = await this.qrRepository
             .createQueryBuilder('qr')
             .where('qr.source_id = :sourceId', { sourceId: station.id })
+            .andWhere('qr.created_at BETWEEN :fromDate AND :toDate', { fromDate, toDate })
             .select('SUM(qr.entry_count)', 'totalEntryCount')
             .getRawOne();
-  
+    
           const exitCount = await this.qrRepository
             .createQueryBuilder('qr')
             .where('qr.destination_id = :destinationId', { destinationId: station.id })
+            .andWhere('qr.created_at BETWEEN :fromDate AND :toDate', { fromDate, toDate })
             .select('SUM(qr.exit_count)', 'totalExitCount')
             .getRawOne();
-  
+    
           return {
             ...station,
-            entryCount: entryCount.totalEntryCount || 0, 
-            exitCount: exitCount.totalExitCount || 0,    
+            entryCount: entryCount.totalEntryCount || 0,
+            exitCount: exitCount.totalExitCount || 0,
           };
         })
       );
-  
+    
       return {
         success: true,
         data: stationData,
@@ -606,6 +647,7 @@ export class ReportsService {
       };
     }
   }
+  
   
 
   findOne(id: number) {
