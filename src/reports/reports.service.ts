@@ -609,7 +609,7 @@ export class ReportsService {
 
   async Ridership(fromDate: Date, toDate: Date) {
     try {
-      const stations = await this.stationRepository.find();
+      const stations = await this.stationRepository.find({where: {is_active: true}, order: { id: "ASC" }});
     
       const stationData = await Promise.all(
         stations.map(async (station) => {
