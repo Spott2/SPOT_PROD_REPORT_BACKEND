@@ -30,6 +30,7 @@ export class ReportsService {
     transactionType?: string;
     page?: number;
     limit?: number;
+    stationId?: number
   }) {
     try {
       const {
@@ -40,6 +41,7 @@ export class ReportsService {
         transactionType,
         page,
         limit,
+        stationId
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -47,6 +49,12 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+      if(stationId) {
+        queryBuilder.andWhere(
+          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+          { stationId }
+      );
+      }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
       } else {
@@ -101,6 +109,7 @@ export class ReportsService {
     orderId?: string;
     paymentMode?: string;
     transactionType?: string;
+    stationId?: number
   }) {
     try {
       const {
@@ -109,6 +118,7 @@ export class ReportsService {
         orderId,
         paymentMode,
         transactionType,
+        stationId
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -116,6 +126,12 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+        if(stationId) {
+          queryBuilder.andWhere(
+            '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+            { stationId }
+        );
+        }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
       } else {
@@ -166,6 +182,7 @@ export class ReportsService {
     transactionType?: string;
     page?: number;
     limit?: number;
+    stationId?: number
   }) {
     try {
       const {
@@ -176,6 +193,7 @@ export class ReportsService {
         transactionType,
         page,
         limit,
+        stationId
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -183,6 +201,12 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+        if(stationId) {
+          queryBuilder.andWhere(
+            '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+            { stationId }
+        );
+        }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
       } else {
@@ -237,6 +261,7 @@ export class ReportsService {
     orderId?: string;
     paymentMode?: string;
     transactionType?: string;
+    stationId?: number
   }) {
     try {
       const {
@@ -245,6 +270,7 @@ export class ReportsService {
         orderId,
         paymentMode,
         transactionType,
+        stationId
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -252,6 +278,12 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+        if(stationId) {
+          queryBuilder.andWhere(
+            '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+            { stationId }
+        );
+        }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
       } else {
@@ -303,6 +335,7 @@ export class ReportsService {
     transactionType?: string;
     page?: number;
     limit?: number;
+    stationId?: number
   }) {
     try {
       const {
@@ -313,6 +346,7 @@ export class ReportsService {
         transactionType,
         page,
         limit,
+        stationId
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -320,6 +354,12 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+        if(stationId) {
+          queryBuilder.andWhere(
+            '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+            { stationId }
+        );
+        }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
       } else {
@@ -374,6 +414,7 @@ export class ReportsService {
     orderId?: string;
     paymentMode?: string;
     transactionType?: string;
+    stationId?: number
   }) {
     try {
       const {
@@ -382,6 +423,7 @@ export class ReportsService {
         orderId,
         paymentMode,
         transactionType,
+        stationId
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -389,6 +431,12 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+        if(stationId) {
+          queryBuilder.andWhere(
+            '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+            { stationId }
+        );
+        }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
       } else {
@@ -439,6 +487,7 @@ export class ReportsService {
     transactionType?: string;
     page?: number;
     limit?: number;
+    stationId?: number
   }) {
     try {
       const {
@@ -449,6 +498,7 @@ export class ReportsService {
         transactionType,
         page,
         limit,
+        stationId
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -456,6 +506,12 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+        if(stationId) {
+          queryBuilder.andWhere(
+            '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+            { stationId }
+        );
+        }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
       } else {
@@ -510,6 +566,7 @@ export class ReportsService {
     orderId?: string;
     paymentMode?: string;
     transactionType?: string;
+    stationId?: number
   }) {
     try {
       const {
@@ -518,6 +575,7 @@ export class ReportsService {
         orderId,
         paymentMode,
         transactionType,
+        stationId
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -525,6 +583,12 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+        if(stationId) {
+          queryBuilder.andWhere(
+            '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+            { stationId }
+        );
+        }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
       } else {

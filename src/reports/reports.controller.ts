@@ -34,6 +34,7 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
+      stationId?: number
     },
   ) {
     return this.reportsService.findAllMonthlyPagination({
@@ -44,6 +45,7 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
+      stationId: body.stationId
     });
   }
 
@@ -56,6 +58,7 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
+      stationId?:number
     },
   ) {
     return this.reportsService.findAllMonthly({
@@ -64,6 +67,7 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
+      stationId: body.stationId
     });
   }
 
@@ -78,6 +82,7 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
+      stationId?:number
     },
   ) {
     return this.reportsService.findAllDailyPagination({
@@ -88,6 +93,7 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
+      stationId: body.stationId
     });
   }
 
@@ -100,6 +106,7 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
+      stationId?: number
     },
   ) {
     return this.reportsService.findAllDaily({
@@ -108,6 +115,7 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
+      stationId: body.stationId
     });
   }
 
@@ -122,6 +130,7 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
+      stationId?: number
     },
   ) {
     return this.reportsService.findAllHourlyPagination({
@@ -132,6 +141,7 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
+      stationId: body.stationId
     });
   }
 
@@ -144,6 +154,7 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
+      stationId?: number
     },
   ) {
     return this.reportsService.findAllHourly({
@@ -152,6 +163,7 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
+      stationId: body.stationId
     });
   }
   @Post('find-all-pagination')
@@ -165,6 +177,7 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
+      stationId?: number
     },
   ) {
     return this.reportsService.findAllPagination({
@@ -175,6 +188,7 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
+      stationId: body.stationId
     });
   }
 
@@ -187,6 +201,7 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
+      stationId?: number
     },
   ) {
     return this.reportsService.findAll({
@@ -195,6 +210,7 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
+      stationId: body.stationId
     });
   }
 
