@@ -786,6 +786,7 @@ export class ReportsService {
             .where('transaction.created_at BETWEEN :start AND :end', {
               start: startDate,
               end: endDate,
+              
             })
             // .andWhere('transaction.source_id IS NOT NULL')
             .andWhere('(transaction.source_id = :stationId)', {
