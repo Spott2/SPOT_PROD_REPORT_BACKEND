@@ -60,7 +60,6 @@ export class ReportsService {
     };
   }
 
-
   async getDashboardAnalyticsByStation(stationId: number) {
 
     const station = await this.stationRepository.findOne({ where: { id: stationId } });
@@ -98,7 +97,6 @@ export class ReportsService {
       nextDay.setDate(day.getDate() + 1);
       nextDay.setHours(0, 0, 0, -1);
 
-      // Fetch transactions for each day
       const { total_amount } = await this.transactionRepository
         .createQueryBuilder('transaction')
         .select('COALESCE(SUM(CAST(transaction.amount AS NUMERIC)), 0)', 'total_amount')
