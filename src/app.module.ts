@@ -35,7 +35,7 @@ import {
       //   },
       // },
     }),
-    ReportsModule
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

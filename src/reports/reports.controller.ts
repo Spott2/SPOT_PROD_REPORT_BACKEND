@@ -18,6 +18,18 @@ import { UpdateReportDto } from './dto/update-report.dto';
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
+  // GRAPH STARTS
+  @Get('get-dashboard-analytics')
+  async getDashboardAnalytics() {
+    return this.reportsService.getDashboardAnalytics();
+  }
+  
+  @Get('get-dashboard-analytics-by-station/:stationId')
+  async getDashboardAnalyticsByStation(@Param('stationId') stationId: number) {
+    return this.reportsService.getDashboardAnalyticsByStation(stationId);
+  }
+  // GRAPH ENDS 
+
   @Post()
   create(@Body() createReportDto: CreateReportDto) {
     return this.reportsService.create(createReportDto);
