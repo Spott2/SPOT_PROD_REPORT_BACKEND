@@ -13,6 +13,7 @@ import {
   EquipmentType,
   User,
   UserGroup,
+  LoginSession
 } from '@spot-demo/shared-entities';
 
 @Module({
@@ -25,7 +26,7 @@ import {
       username: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      entities: [TransactionQr, Qr, Station, Line, Equipment, EquipmentType, User, UserGroup],
+      entities: [TransactionQr, Qr, Station, Line, Equipment, EquipmentType, User, UserGroup, LoginSession],
       synchronize: true,
       // logging: true,
       // ssl: true,

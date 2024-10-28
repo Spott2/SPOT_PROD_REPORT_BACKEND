@@ -228,9 +228,9 @@ export class ReportsController {
 
   @Post('find-station')
   async getStations(
-    @Body() 
-    body: { 
-      fromDate: Date | string; 
+    @Body()
+    body: {
+      fromDate: Date | string;
       toDate: Date | string;
     },
   ) {
@@ -246,6 +246,39 @@ export class ReportsController {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  @Post('tom-shift-report')
+  tomShiftReport(@Body() body: { date: string; station: string }) {
+    return this.reportsService.tomShiftReport(body.date, body.station);
+  }
+
+  @Post('report-by-station-operator')
+  getCollectionReportByStationOperator(
+    @Body() body: { date: string; station: string },
+  ) {
+    return this.reportsService.getCollectionReportByStationOperator(
+      body.date,
+      body?.station,
+    );
+  }
+
+  @Post('report-by-station')
+  getCollectionReportByStation(
+    @Body() body: { date: string; station: string },
+  ) {
+    return this.reportsService.getCollectionReportByStation(
+      body.date,
+      body.station,
+    );
+  }
+
+  @Post('report-by-date')
+  getCollectionReportByDate(@Body() body: { date: string; station: string }) {
+    return this.reportsService.getCollectionReportByDate(
+      body.date,
+      body.station,
+    );
   }
 
   @Get(':id')
