@@ -28,14 +28,28 @@ export class ReportsService {
     const stations = await this.stationRepository.find();
     const currentDate = new Date().toISOString().split('T')[0];
 
+    // transaction data for the current date 
     const transactionData = await this.transactionRepository
       .createQueryBuilder('transaction')
       .leftJoin('transaction.station', 'station')
       .select('station.id', 'station_id')
       .addSelect('station.station_name', 'station_name')
       .addSelect('SUM(transaction.amount)', 'total_amount')
+      .addSelect('SUM(transaction.no_of_tickets)', 'total_no_of_tickets')
+      .addSelect('SUM(CASE WHEN transaction.payment_mode = \'cash\' THEN transaction.amount ELSE 0 END)', 'total_cash')
+      .addSelect('SUM(CASE WHEN transaction.payment_mode IN (\'online\', \'credit_card\', \'upi\') THEN transaction.amount ELSE 0 END)', 'total_online')
       .where('transaction.created_at::date = :currentDate', { currentDate })
       .groupBy('station.id')
+      .getRawMany();
+
+    // entry and exit counts for all stations on the current date
+    const qrData = await this.qrRepository
+      .createQueryBuilder('qr')
+      .select('qr.source_id', 'station_id')
+      .addSelect('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
+      .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+      .where('qr.qr_date_time::date = :currentDate', { currentDate })
+      .groupBy('qr.source_id')
       .getRawMany();
 
     const dashboardAnalytics = stations.map(station => {
@@ -43,10 +57,19 @@ export class ReportsService {
         txn => txn.station_id === station.id
       );
 
+      const entryExitCounts = qrData.find(
+        qr => parseInt(qr.station_id, 10) === station.id
+      );
+
       return {
         station_id: station.id,
         station_name: station.station_name,
-        total_amount: transaction ? Number(transaction.total_amount) : 0
+        total_amount: transaction ? Number(transaction.total_amount) : 0,
+        total_no_of_tickets: transaction ? Number(transaction.total_no_of_tickets) : 0,
+        total_cash: transaction ? Number(transaction.total_cash) : 0,
+        total_online: transaction ? Number(transaction.total_online) : 0,
+        total_entry_count: entryExitCounts ? parseInt(entryExitCounts.total_entry_count, 10) : 0,
+        total_exit_count: entryExitCounts ? parseInt(entryExitCounts.total_exit_count, 10) : 0,
       };
     });
 
@@ -61,7 +84,6 @@ export class ReportsService {
   }
 
   async getDashboardAnalyticsByStation(stationId: number) {
-
     const station = await this.stationRepository.findOne({ where: { id: stationId } });
     if (!station) {
       throw new Error(`Station with ID ${stationId} not found`);
@@ -77,14 +99,7 @@ export class ReportsService {
     const formatDate = (date: Date) => {
       const day = date.getDate();
       const month = date.toLocaleString('default', { month: 'short' });
-      return `${day}${day % 10 === 1 && day !== 11
-          ? 'st'
-          : day % 10 === 2 && day !== 12
-            ? 'nd'
-            : day % 10 === 3 && day !== 13
-              ? 'rd'
-              : 'th'
-        } ${month}`;
+      return `${day}${day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th'} ${month}`;
     };
 
     const past7Days = [];
@@ -97,9 +112,13 @@ export class ReportsService {
       nextDay.setDate(day.getDate() + 1);
       nextDay.setHours(0, 0, 0, -1);
 
-      const { total_amount } = await this.transactionRepository
+      // Transaction query for total amount
+      const { total_amount, total_no_of_tickets, total_cash, total_online } = await this.transactionRepository
         .createQueryBuilder('transaction')
-        .select('COALESCE(SUM(CAST(transaction.amount AS NUMERIC)), 0)', 'total_amount')
+        .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
+        .addSelect('COALESCE(SUM(CASE WHEN transaction.payment_mode = \'cash\' THEN transaction.amount ELSE 0 END), 0)', 'total_cash')
+        .addSelect('COALESCE(SUM(CASE WHEN transaction.payment_mode IN (\'credit_card\', \'upi\') THEN transaction.amount ELSE 0 END), 0)', 'total_online')
+        .addSelect('COALESCE(SUM(transaction.no_of_tickets), 0)', 'total_no_of_tickets')
         .where('transaction.created_at BETWEEN :day AND :nextDay', {
           day: day.toISOString(),
           nextDay: nextDay.toISOString(),
@@ -107,9 +126,26 @@ export class ReportsService {
         .andWhere('transaction.station = :stationId', { stationId })
         .getRawOne();
 
+      // Qr query for entry and exit counts
+      const qrData = await this.qrRepository
+        .createQueryBuilder('qr')
+        .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
+        .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+        .where('qr.qr_date_time BETWEEN :day AND :nextDay', {
+          day: day.toISOString(),
+          nextDay: nextDay.toISOString(),
+        })
+        .andWhere('(qr.source_id = :stationId OR qr.source_id = :stationId)', { stationId })
+        .getRawOne();
+
       past7Days.push({
         date: formatDate(day),
+        total_cash: total_cash ? Number(total_cash) : 0,
+        total_online: total_online ? Number(total_online) : 0,
         total_amount: total_amount ? Number(total_amount) : 0,
+        total_no_of_tickets: total_no_of_tickets ? Number(total_no_of_tickets) : 0,
+        total_entry_count: parseInt(qrData.total_entry_count, 10),
+        total_exit_count: parseInt(qrData.total_exit_count, 10),
       });
     }
 
@@ -810,8 +846,6 @@ export class ReportsService {
       };
     }
   }
-
-
 
   findOne(id: number) {
     return `This action returns a #${id} report`;
