@@ -13,6 +13,7 @@ import {
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { LoginSessionInput } from './commonTypes';
 
 @Controller('reports')
 export class ReportsController {
@@ -23,12 +24,12 @@ export class ReportsController {
   async getDashboardAnalytics() {
     return this.reportsService.getDashboardAnalytics();
   }
-  
+
   @Get('get-dashboard-analytics-by-station/:stationId')
   async getDashboardAnalyticsByStation(@Param('stationId') stationId: number) {
     return this.reportsService.getDashboardAnalyticsByStation(stationId);
   }
-  // GRAPH ENDS 
+  // GRAPH ENDS
 
   @Post()
   create(@Body() createReportDto: CreateReportDto) {
@@ -46,7 +47,7 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
-      stationId?: number
+      stationId?: number;
     },
   ) {
     return this.reportsService.findAllMonthlyPagination({
@@ -57,7 +58,7 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
-      stationId: body.stationId
+      stationId: body.stationId,
     });
   }
 
@@ -70,7 +71,7 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
-      stationId?:number
+      stationId?: number;
     },
   ) {
     return this.reportsService.findAllMonthly({
@@ -79,7 +80,7 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
-      stationId: body.stationId
+      stationId: body.stationId,
     });
   }
 
@@ -94,7 +95,7 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
-      stationId?:number
+      stationId?: number;
     },
   ) {
     return this.reportsService.findAllDailyPagination({
@@ -105,7 +106,7 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
-      stationId: body.stationId
+      stationId: body.stationId,
     });
   }
 
@@ -118,7 +119,7 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
-      stationId?: number
+      stationId?: number;
     },
   ) {
     return this.reportsService.findAllDaily({
@@ -127,7 +128,7 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
-      stationId: body.stationId
+      stationId: body.stationId,
     });
   }
 
@@ -142,7 +143,7 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
-      stationId?: number
+      stationId?: number;
     },
   ) {
     return this.reportsService.findAllHourlyPagination({
@@ -153,7 +154,7 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
-      stationId: body.stationId
+      stationId: body.stationId,
     });
   }
 
@@ -166,7 +167,7 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
-      stationId?: number
+      stationId?: number;
     },
   ) {
     return this.reportsService.findAllHourly({
@@ -175,7 +176,7 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
-      stationId: body.stationId
+      stationId: body.stationId,
     });
   }
   @Post('find-all-pagination')
@@ -189,7 +190,7 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
-      stationId?: number
+      stationId?: number;
     },
   ) {
     return this.reportsService.findAllPagination({
@@ -200,7 +201,7 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
-      stationId: body.stationId
+      stationId: body.stationId,
     });
   }
 
@@ -213,7 +214,7 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
-      stationId?: number
+      stationId?: number;
     },
   ) {
     return this.reportsService.findAll({
@@ -222,7 +223,7 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
-      stationId: body.stationId
+      stationId: body.stationId,
     });
   }
 
@@ -279,6 +280,11 @@ export class ReportsController {
       body.date,
       body.station,
     );
+  }
+
+  @Post('shift-report')
+  shiftReport(@Body() body: LoginSessionInput) {
+    return this.reportsService.shipReport(body);
   }
 
   @Get(':id')
