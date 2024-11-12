@@ -287,6 +287,11 @@ export class ReportsController {
     return this.reportsService.shipReport(body);
   }
 
+  @Post('find-shift-report')
+  findShiftReport(@Body() body: { fromDate: Date, endDate: Date, station: string }) {
+    return this.reportsService.findShiftReport(body);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.reportsService.findOne(+id);

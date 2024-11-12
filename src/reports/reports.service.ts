@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { Repository, Between } from 'typeorm';
@@ -1613,6 +1613,53 @@ export class ReportsService {
     });
     const savedSession = await this.loginSessionRepository.save(session)
     return savedSession
+  }
+
+  async findShiftReport(payload: { fromDate: Date, endDate: Date, station:string }) {
+    try {
+    const { fromDate, endDate, station } = payload
+    const startDate = new Date(fromDate)
+    const toDate = new Date(endDate)
+
+    console.log(station)
+
+    startDate.setUTCHours(0, 0, 0, 0);
+    toDate.setUTCHours(23, 59, 59, 999);
+    let where: any = {
+      login_time: Between(startDate, toDate)
+    }
+    if(station) {
+      where.station = {id:station}
+    }
+    console.log(where)
+    const sessions = await this.loginSessionRepository.find({where, relations: ["station", "user"],
+      select: [
+        "id",
+        "device_id",
+        "station",
+        "shift_id",
+        "total_amount",
+        "cash_amount",
+        "upi_amount",
+        "no_of_tickets",
+        "no_of_tickets_cash",
+        "no_of_tickets_upi",
+        "no_of_refund",
+        "total_refund_amount",
+        "no_of_cancelled",
+        "total_cancelled_amount",
+        "login_time",
+        "logout_time",
+        "user",
+      ],
+
+    });
+    return { data: sessions }
+  } 
+  catch (err) {
+    console.log(err)
+    throw new BadRequestException("Something went wrong")
+  }
   }
 
   findOne(id: number) {
