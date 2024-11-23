@@ -251,6 +251,8 @@ export class ReportsService {
           });
         }
       }
+      queryBuilder.orderBy('qr.id', 'DESC');
+
 
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
@@ -404,6 +406,9 @@ export class ReportsService {
         }
       }
 
+      queryBuilder.orderBy('qr.id', 'DESC');
+
+
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
 
@@ -556,6 +561,9 @@ export class ReportsService {
           });
         }
       }
+
+      queryBuilder.orderBy('qr.id', 'DESC');
+
 
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
