@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { Repository, Between } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Station, TransactionQr } from '@spot-demo/shared-entities';
+import { Equipment, Station, TransactionQr } from '@spot-demo/shared-entities';
 import { subDays, format } from 'date-fns';
 import { Qr, LoginSession } from '@spot-demo/shared-entities';
 import axios from 'axios';
@@ -23,6 +23,9 @@ export class ReportsService {
 
     @InjectRepository(LoginSession)
     private loginSessionRepository: Repository<LoginSession>,
+    
+    @InjectRepository(Equipment)
+    private equipmentRepository: Repository<Equipment>,
   ) {}
   create(createReportDto: CreateReportDto) {
     return 'This action adds a new report';
@@ -1470,67 +1473,164 @@ export class ReportsService {
   //   return stationsArr;
   // }
 
-  async getCollectionReportByStation(date, station_id) {
-    const deviceTypes = [
-      'RCTM-01',
-      'RCTM-02',
-      'TOM/EFO-01',
-      'TOM/EFO-02',
-      'TOM/EFO-03',
-      'TOM/EFO-11',
-      'TOM/EFO-12',
-      'TOM/EFO-22',
-      'TOM/EFO-41',
-      'TOM/EFO-42',
-      'TOM/EFO-43',
-      'TOM/EFO-44',
-      'TVM-01',
-      'TVM-02',
-      'TVM-03',
-      'TVM-04',
-      'TVM-11',
-      'TVM-12',
-      'TVM-13',
-      'TVM-14',
-      'TVM-15',
-      'TVM-16',
-    ];
+  // async getCollectionReportByStation(date, station_id) {
+  //   const deviceTypes = [
+  //     'RCTM-01',
+  //     'RCTM-02',
+  //     'TOM/EFO-01',
+  //     'TOM/EFO-02',
+  //     'TOM/EFO-03',
+  //     'TOM/EFO-11',
+  //     'TOM/EFO-12',
+  //     'TOM/EFO-22',
+  //     'TOM/EFO-41',
+  //     'TOM/EFO-42',
+  //     'TOM/EFO-43',
+  //     'TOM/EFO-44',
+  //     'TVM-01',
+  //     'TVM-02',
+  //     'TVM-03',
+  //     'TVM-04',
+  //     'TVM-11',
+  //     'TVM-12',
+  //     'TVM-13',
+  //     'TVM-14',
+  //     'TVM-15',
+  //     'TVM-16',
+  //   ];
 
+  //   const startDate = new Date(date);
+  //   const endDate = new Date(date);
+  //   startDate.setUTCHours(0, 0, 0, 0);
+  //   endDate.setUTCHours(23, 59, 59, 999);
+
+  //   const stations = await this.stationRepository.find({
+  //     select: ['id', 'station_name'],
+  //     order: { id: 'ASC' },
+  //   });
+
+  //   const stationsArr = [];
+
+  //   for (const station of stations) {
+  //     if (station_id && station.id !== station_id) {
+  //       continue;
+  //     }
+
+  //     let stationObj = {
+  //       station_name: station.station_name,
+  //       date: date,
+  //       shifts: [],
+  //     };
+
+  //     const configRes = await axios.get(
+  //       'http://localhost:8990/inventory/station-devices',
+  //     );
+  //     const stationDevices = configRes.data?.data.find(
+  //       (s) => s.station_name === station.station_name,
+  //     );
+
+  //     for (const deviceType of deviceTypes) {
+  //       const device = stationDevices?.equipments.find(
+  //         (equipment) => equipment.device_name === deviceType,
+  //       );
+
+  //       if (device) {
+  //         const sessions = await this.loginSessionRepository.find({
+  //           where: {
+  //             device_id: device.device_id,
+  //             created_at: Between(startDate, endDate),
+  //           },
+  //           select: [
+  //             'device_id',
+  //             'shift_id',
+  //             'user',
+  //             'no_of_cancelled',
+  //             'no_of_refund',
+  //             'total_amount',
+  //             'login_time',
+  //             'logout_time',
+  //             'cash_amount',
+  //             'upi_amount',
+  //             'no_of_tickets',
+  //             'no_of_tickets_cash',
+  //             'no_of_tickets_upi',
+  //           ],
+  //         });
+
+  //         sessions.forEach((session, index) => {
+  //           let shift = {
+  //             name: `Shift ${index + 1}`,
+  //             shift_id: session.shift_id,
+  //             device_id: device.device_name,
+  //             total_amount: session.total_amount,
+  //             cash_amount: session.cash_amount,
+  //             upi_amount: session.upi_amount,
+  //             no_of_tickets: session.no_of_tickets,
+  //             no_of_tickets_cash: session.no_of_tickets_cash,
+  //             no_of_tickets_upi: session.no_of_tickets_upi,
+  //             no_of_refund: session.no_of_refund,
+  //             no_of_cancelled: session.no_of_cancelled,
+  //             login_time: session.login_time,
+  //             logout_time: session.logout_time,
+  //           };
+
+  //           stationObj.shifts.push(shift);
+  //         });
+  //       }
+  //     }
+
+  //     stationsArr.push(stationObj);
+  //   }
+
+  //   return stationsArr;
+  // }
+
+  async getCollectionReportByStation(date, station_id) {
     const startDate = new Date(date);
     const endDate = new Date(date);
     startDate.setUTCHours(0, 0, 0, 0);
     endDate.setUTCHours(23, 59, 59, 999);
-
+  
+    const equipmentRes = await this.equipmentRepository.find({
+      select: ['device_name']
+    });
+    const deviceTypes = equipmentRes.map((equipment) => equipment.device_name);
+    console.log("a", equipmentRes)
+  
+    if (!deviceTypes || deviceTypes.length === 0) {
+      throw new Error('No devices found in the equipment API response.');
+    }
+  
     const stations = await this.stationRepository.find({
       select: ['id', 'station_name'],
       order: { id: 'ASC' },
     });
-
+  
     const stationsArr = [];
-
+  
     for (const station of stations) {
       if (station_id && station.id !== station_id) {
         continue;
       }
-
+  
       let stationObj = {
         station_name: station.station_name,
         date: date,
         shifts: [],
       };
-
+  
       const configRes = await axios.get(
-        'http://localhost:8990/inventory/station-devices',
+        'http://103.186.47.133/inventory/station-devices',
       );
       const stationDevices = configRes.data?.data.find(
         (s) => s.station_name === station.station_name,
       );
-
+  
       for (const deviceType of deviceTypes) {
         const device = stationDevices?.equipments.find(
           (equipment) => equipment.device_name === deviceType,
         );
-
+  
         if (device) {
           const sessions = await this.loginSessionRepository.find({
             where: {
@@ -1553,7 +1653,7 @@ export class ReportsService {
               'no_of_tickets_upi',
             ],
           });
-
+  
           sessions.forEach((session, index) => {
             let shift = {
               name: `Shift ${index + 1}`,
@@ -1570,15 +1670,15 @@ export class ReportsService {
               login_time: session.login_time,
               logout_time: session.logout_time,
             };
-
+  
             stationObj.shifts.push(shift);
           });
         }
       }
-
+  
       stationsArr.push(stationObj);
     }
-
+  
     return stationsArr;
   }
 
@@ -1669,6 +1769,7 @@ export class ReportsService {
     throw new BadRequestException("Something went wrong")
   }
   }
+  
 
   findOne(id: number) {
     return `This action returns a #${id} report`;
