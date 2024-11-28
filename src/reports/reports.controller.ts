@@ -31,6 +31,28 @@ export class ReportsController {
   }
   // GRAPH ENDS
 
+  @Post('get-dashboard-analytics-by-station-daily')
+  getDashboardAnalyticsByStationDaily(
+    @Body()
+    body: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      stationId?: number | null;
+    },
+  ) {
+    return this.reportsService.getDashboardAnalyticsByStationDaily({
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      stationId: body.stationId ?? null,
+    });
+  }
+
+  @Get('get-dashboard-analytics-all-station')
+  getDashboardAnalyticsAllStation() {
+    return this.reportsService.getDashboardAnalyticsAllStation();
+  }
+
+  
   @Post()
   create(@Body() createReportDto: CreateReportDto) {
     return this.reportsService.create(createReportDto);
@@ -288,7 +310,9 @@ export class ReportsController {
   }
 
   @Post('find-shift-report')
-  findShiftReport(@Body() body: { fromDate: Date, endDate: Date, station: string }) {
+  findShiftReport(
+    @Body() body: { fromDate: Date; endDate: Date; station: string },
+  ) {
     return this.reportsService.findShiftReport(body);
   }
 

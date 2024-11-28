@@ -4,7 +4,13 @@ import { UpdateReportDto } from './dto/update-report.dto';
 import { Repository, Between } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Equipment, Station, TransactionQr } from '@spot-demo/shared-entities';
-import { subDays, format } from 'date-fns';
+import {
+  subDays,
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+} from 'date-fns';
 import { Qr, LoginSession } from '@spot-demo/shared-entities';
 import axios from 'axios';
 import { LoginSessionInput } from './commonTypes';
@@ -23,7 +29,7 @@ export class ReportsService {
 
     @InjectRepository(LoginSession)
     private loginSessionRepository: Repository<LoginSession>,
-    
+
     @InjectRepository(Equipment)
     private equipmentRepository: Repository<Equipment>,
   ) {}
@@ -196,6 +202,533 @@ export class ReportsService {
   }
   // GRAPH ENDS HERE
 
+  // async getDashboardAnalyticsByStationDaily(
+  //   fromDate?: Date | string,
+  //   toDate?: Date | string,
+  //   stationId?: number
+  // )
+  // {
+  //   let station: any = null;
+  //   let stations: any[] = [];
+
+  //   if (stationId) {
+  //     station = await this.stationRepository.findOne({
+  //       where: { id: stationId },
+  //     });
+  //     if (!station) {
+  //       throw new Error(`Station with ID ${stationId} not found`);
+  //     }
+  //   } else {
+  //     stations = await this.stationRepository.find({
+  //       select: ['id', 'station_name'],
+  //     });
+  //   }
+
+  //   const start = new Date(fromDate);
+  //   const end = new Date(toDate);
+
+  //   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+  //     throw new Error(
+  //       'Invalid date format. Use ISO format for fromDate and toDate.',
+  //     );
+  //   }
+
+  //   start.setHours(0, 0, 0, 0);
+  //   end.setHours(23, 59, 59, 999);
+
+  //   const responseData = [];
+
+  //   const stationList = stationId ? [station] : stations;
+
+  //   for (const currentStation of stationList) {
+  //     const { total_amount, total_no_of_tickets, total_cash, total_online } =
+  //       await this.transactionRepository
+  //         .createQueryBuilder('transaction')
+  //         .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
+  //         .addSelect(
+  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+  //           'total_cash',
+  //         )
+  //         .addSelect(
+  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+  //           'total_online',
+  //         )
+  //         .addSelect(
+  //           'COALESCE(SUM(transaction.no_of_tickets), 0)',
+  //           'total_no_of_tickets',
+  //         )
+  //         .where('transaction.created_at BETWEEN :start AND :end', {
+  //           start: start.toISOString(),
+  //           end: end.toISOString(),
+  //         })
+  //         .andWhere(
+  //           stationId
+  //             ? 'transaction.station = :stationId'
+  //             : 'transaction.station = :currentStationId',
+  //           { stationId: stationId ?? currentStation.id },
+  //         )
+  //         .getRawOne();
+
+  //     const qrData = await this.qrRepository
+  //       .createQueryBuilder('qr')
+  //       .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
+  //       .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+  //       .where('qr.qr_date_time BETWEEN :start AND :end', {
+  //         start: start.toISOString(),
+  //         end: end.toISOString(),
+  //       })
+  //       .andWhere(
+  //         stationId
+  //           ? '(qr.source_id = :stationId OR qr.destination_id = :stationId)'
+  //           : '(qr.source_id = :currentStationId OR qr.destination_id = :currentStationId)',
+  //         { stationId: stationId ?? currentStation.id },
+  //       )
+  //       .getRawOne();
+
+  //     responseData.push({
+  //       station_id: currentStation.id,
+  //       station_name: currentStation.station_name,
+  //       total_cash: total_cash ? Number(total_cash) : 0,
+  //       total_online: total_online ? Number(total_online) : 0,
+  //       total_amount: total_amount ? Number(total_amount) : 0,
+  //       total_no_of_tickets: total_no_of_tickets
+  //         ? Number(total_no_of_tickets)
+  //         : 0,
+  //       total_entry_count: parseInt(qrData.total_entry_count, 10),
+  //       total_exit_count: parseInt(qrData.total_exit_count, 10),
+  //     });
+  //   }
+
+  //   return {
+  //     data: responseData,
+  //     date_range: {
+  //       from: fromDate,
+  //       to: toDate,
+  //     },
+  //   };
+  // }
+
+  // async getDashboardAnalyticsByStationDaily(params: {
+  //   fromDate?: Date | string;
+  //   toDate?: Date | string;
+  //   stationId?: number | null;
+  // }) {
+  //   const { fromDate, toDate, stationId } = params;
+
+  //   let station: any = null;
+  //   let stations: any[] = [];
+
+  //   if (stationId) {
+  //     station = await this.stationRepository.findOne({
+  //       where: { id: stationId },
+  //     });
+  //     if (!station) {
+  //       throw new Error(`Station with ID ${stationId} not found`);
+  //     }
+  //   } else {
+  //     stations = await this.stationRepository.find({
+  //       select: ['id', 'station_name'],
+  //     });
+  //   }
+
+  //   const start = new Date(fromDate);
+  //   const end = new Date(toDate);
+
+  //   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+  //     throw new Error(
+  //       'Invalid date format. Use ISO format for fromDate and toDate.',
+  //     );
+  //   }
+
+  //   start.setHours(0, 0, 0, 0);
+  //   end.setHours(23, 59, 59, 999);
+
+  //   const responseData = [];
+
+  //   const stationList = stationId ? [station] : stations;
+
+  //   for (const currentStation of stationList) {
+  //     const { total_amount, total_no_of_tickets, total_cash, total_online } =
+  //       await this.transactionRepository
+  //         .createQueryBuilder('transaction')
+  //         .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
+  //         .addSelect(
+  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+  //           'total_cash',
+  //         )
+  //         .addSelect(
+  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+  //           'total_online',
+  //         )
+  //         .addSelect(
+  //           'COALESCE(SUM(transaction.no_of_tickets), 0)',
+  //           'total_no_of_tickets',
+  //         )
+  //         .where('transaction.created_at BETWEEN :start AND :end', {
+  //           start: start.toISOString(),
+  //           end: end.toISOString(),
+  //         })
+  //         .andWhere(
+  //           stationId
+  //             ? 'transaction.station = :stationId'
+  //             : 'transaction.station = :currentStationId',
+  //           { stationId: stationId ?? currentStation.id },
+  //         )
+  //         .getRawOne();
+
+  //     const qrData = await this.qrRepository
+  //       .createQueryBuilder('qr')
+  //       .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
+  //       .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+  //       .where('qr.qr_date_time BETWEEN :start AND :end', {
+  //         start: start.toISOString(),
+  //         end: end.toISOString(),
+  //       })
+  //       .andWhere(
+  //         stationId
+  //           ? '(qr.source_id = :stationId OR qr.destination_id = :stationId)'
+  //           : '(qr.source_id = :currentStationId OR qr.destination_id = :currentStationId)',
+  //         { stationId: stationId ?? currentStation.id },
+  //       )
+  //       .getRawOne();
+
+  //     responseData.push({
+  //       station_id: currentStation.id,
+  //       station_name: currentStation.station_name,
+  //       total_cash: total_cash ? Number(total_cash) : 0,
+  //       total_online: total_online ? Number(total_online) : 0,
+  //       total_amount: total_amount ? Number(total_amount) : 0,
+  //       total_no_of_tickets: total_no_of_tickets
+  //         ? Number(total_no_of_tickets)
+  //         : 0,
+  //       total_entry_count: parseInt(qrData.total_entry_count, 10),
+  //       total_exit_count: parseInt(qrData.total_exit_count, 10),
+  //     });
+  //   }
+
+  //   return {
+  //     data: responseData,
+  //     date_range: {
+  //       from: fromDate,
+  //       to: toDate,
+  //     },
+  //   };
+  // }
+
+  // async getDashboardAnalyticsByStationDaily(params: {
+  //   fromDate?: Date | string;
+  //   toDate?: Date | string;
+  //   stationId?: number | null;
+  // }) {
+  //   const { fromDate, toDate, stationId } = params;
+
+  //   let station: any = null;
+  //   let stations: any[] = [];
+
+  //   if (stationId) {
+  //     station = await this.stationRepository.findOne({
+  //       where: { id: stationId },
+  //     });
+  //     if (!station) {
+  //       throw new Error(`Station with ID ${stationId} not found`);
+  //     }
+  //   } else {
+  //     stations = await this.stationRepository.find({
+  //       select: ['id', 'station_name'],
+  //     });
+  //   }
+
+  //   const start = new Date(fromDate);
+  //   const end = new Date(toDate);
+
+  //   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+  //     throw new Error(
+  //       'Invalid date format. Use ISO format for fromDate and toDate.',
+  //     );
+  //   }
+
+  //   start.setHours(0, 0, 0, 0);
+  //   end.setHours(23, 59, 59, 999);
+
+  //   const responseData = [];
+
+  //   const stationList = stationId ? [station] : stations;
+
+  //   for (const currentStation of stationList) {
+  //     const { total_amount, total_no_of_tickets, total_cash, total_online } =
+  //       await this.transactionRepository
+  //         .createQueryBuilder('transaction')
+  //         .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
+  //         .addSelect(
+  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+  //           'total_cash',
+  //         )
+  //         .addSelect(
+  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+  //           'total_online',
+  //         )
+  //         .addSelect(
+  //           'COALESCE(SUM(transaction.no_of_tickets), 0)',
+  //           'total_no_of_tickets',
+  //         )
+  //         .where('transaction.created_at BETWEEN :start AND :end', {
+  //           start: start.toISOString(),
+  //           end: end.toISOString(),
+  //         })
+  //         .andWhere(stationId ? 'transaction.station = :stationId' : '1=1', {
+  //           stationId: stationId ?? currentStation.id,
+  //         })
+  //         .getRawOne();
+
+  //     const qrData = await this.qrRepository
+  //       .createQueryBuilder('qr')
+  //       .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
+  //       .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+  //       .where('qr.qr_date_time BETWEEN :start AND :end', {
+  //         start: start.toISOString(),
+  //         end: end.toISOString(),
+  //       })
+  //       .andWhere(
+  //         stationId
+  //           ? '(qr.source_id = :stationId OR qr.destination_id = :stationId)'
+  //           : '1=1',
+  //         { stationId: stationId ?? currentStation.id },
+  //       )
+  //       .getRawOne();
+
+  //     responseData.push({
+  //       station_id: currentStation.id,
+  //       station_name: currentStation.station_name,
+  //       total_cash: total_cash ? Number(total_cash) : 0,
+  //       total_online: total_online ? Number(total_online) : 0,
+  //       total_amount: total_amount ? Number(total_amount) : 0,
+  //       total_no_of_tickets: total_no_of_tickets
+  //         ? Number(total_no_of_tickets)
+  //         : 0,
+  //       total_entry_count: parseInt(qrData.total_entry_count, 10),
+  //       total_exit_count: parseInt(qrData.total_exit_count, 10),
+  //     });
+  //   }
+
+  //   // return {
+  //   //   data: responseData,
+  //   //   // date_range: {
+  //   //   //   from: fromDate,
+  //   //   //   to: toDate,
+  //   //   // },
+  //   // };
+
+  //   return responseData;
+
+  // }
+
+  async getDashboardAnalyticsByStationDaily(params: {
+    fromDate?: Date | string;
+    toDate?: Date | string;
+    stationId?: number | null;
+  }) {
+    const { fromDate, toDate, stationId } = params;
+
+    let station: any = null;
+    let stations: any[] = [];
+
+    if (stationId) {
+      station = await this.stationRepository.findOne({
+        where: { id: stationId },
+      });
+      if (!station) {
+        throw new Error(`Station with ID ${stationId} not found`);
+      }
+    } else {
+      stations = await this.stationRepository.find({
+        select: ['id', 'station_name'],
+      });
+    }
+
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new Error(
+        'Invalid date format. Use ISO format for fromDate and toDate.',
+      );
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    const responseData = [];
+
+    const stationList = stationId ? [station] : stations;
+
+    for (const currentStation of stationList) {
+      const { total_amount, total_no_of_tickets, total_cash, total_online } =
+        await this.transactionRepository
+          .createQueryBuilder('transaction')
+          .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
+          .addSelect(
+            "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+            'total_cash',
+          )
+          .addSelect(
+            "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+            'total_online',
+          )
+          .addSelect(
+            'COALESCE(SUM(transaction.no_of_tickets), 0)',
+            'total_no_of_tickets',
+          )
+          .where('transaction.created_at BETWEEN :start AND :end', {
+            start: start.toISOString(),
+            end: end.toISOString(),
+          })
+          .andWhere('transaction.station = :stationId', {
+            stationId: currentStation.id,
+          })
+          .getRawOne();
+
+      // const qrData = await this.qrRepository
+      //   .createQueryBuilder('qr')
+      //   .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
+      //   .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+      //   .where('qr.qr_date_time BETWEEN :start AND :end', {
+      //     start: start.toISOString(),
+      //     end: end.toISOString(),
+      //   })
+      //   .andWhere(
+      //     '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+      //     { stationId: currentStation.id },
+      //   )
+      //   .getRawOne();
+
+      const qrData = await this.qrRepository
+        .createQueryBuilder('qr')
+        .select(
+          'COALESCE(SUM(CASE WHEN qr.source_id = :stationId THEN qr.entry_count ELSE 0 END), 0)',
+          'total_entry_count',
+        )
+        .addSelect(
+          'COALESCE(SUM(CASE WHEN qr.destination_id = :stationId THEN qr.exit_count ELSE 0 END), 0)',
+          'total_exit_count',
+        )
+        .where('qr.qr_date_time BETWEEN :start AND :end', {
+          start: start.toISOString(),
+          end: end.toISOString(),
+        })
+        .andWhere(
+          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+          { stationId: currentStation.id },
+        )
+        .getRawOne();
+
+      responseData.push({
+        station_id: currentStation.id,
+        station_name: currentStation.station_name,
+        total_cash: total_cash ? Number(total_cash) : 0,
+        total_online: total_online ? Number(total_online) : 0,
+        total_amount: total_amount ? Number(total_amount) : 0,
+        total_no_of_tickets: total_no_of_tickets
+          ? Number(total_no_of_tickets)
+          : 0,
+        total_entry_count: parseInt(qrData.total_entry_count, 10),
+        total_exit_count: parseInt(qrData.total_exit_count, 10),
+      });
+    }
+
+    return responseData;
+  }
+
+  // async getDashboardAnalyticsAllStation() {
+  //   const today = new Date();
+  //   const start = startOfMonth(today);
+  //   const end = endOfMonth(today);
+
+  //   const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+  //   const startDate = new Date(start.getTime() + IST_OFFSET);
+  //   const endDate = new Date(end.getTime() + IST_OFFSET);
+
+  //   startDate.setHours(0, 0, 0, 0);
+  //   endDate.setHours(23, 59, 59, 999);
+
+  //   const dailyRevenue = await this.transactionRepository
+  //     .createQueryBuilder('transaction')
+  //     .select([
+  //       'DATE(transaction.created_at) AS date',
+  //       'COALESCE(SUM(transaction.amount), 0) AS total_amount',
+  //       "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
+  //       "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0) AS total_online",
+  //     ])
+  //     .where('transaction.created_at BETWEEN :start AND :end', {
+  //       start: startDate.toISOString(),
+  //       end: endDate.toISOString(),
+  //     })
+  //     .groupBy('DATE(transaction.created_at)')
+  //     .orderBy('DATE(transaction.created_at)', 'ASC')
+  //     .getRawMany();
+
+  //   const formattedDailyRevenue = dailyRevenue.map(day => ({
+  //     date: format(new Date(day.date), 'dd MMM yyyy'),
+  //     total_cash: day.total_cash ? Number(day.total_cash) : 0,
+  //     total_online: day.total_online ? Number(day.total_online) : 0,
+  //     total_amount: day.total_amount ? Number(day.total_amount) : 0,
+  //   }));
+
+  //   return formattedDailyRevenue;
+  // }
+
+  async getDashboardAnalyticsAllStation() {
+    const today = new Date();
+    const start = startOfMonth(today);
+    const end = endOfMonth(today);
+
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const startDate = new Date(start.getTime() + IST_OFFSET);
+    const endDate = new Date(end.getTime() + IST_OFFSET);
+
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    const allDates = eachDayOfInterval({
+      start: startOfMonth(today),
+      end: endOfMonth(today),
+    });
+
+    const dailyRevenue = await this.transactionRepository
+      .createQueryBuilder('transaction')
+      .select([
+        'DATE(transaction.created_at) AS date',
+        'COALESCE(SUM(transaction.amount), 0) AS total_amount',
+        "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
+        "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0) AS total_online",
+      ])
+      .where('transaction.created_at BETWEEN :start AND :end', {
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+      })
+      .groupBy('DATE(transaction.created_at)')
+      .orderBy('DATE(transaction.created_at)', 'ASC')
+      .getRawMany();
+
+    console.log('Daily Revenue Data:', dailyRevenue);
+
+    const formattedDailyRevenue = allDates.map((day) => {
+      const dayString = format(day, 'yyyy-MM-dd');
+
+      const dayData = dailyRevenue.find(
+        (revenue) => format(new Date(revenue.date), 'yyyy-MM-dd') === dayString,
+      );
+
+      return {
+        date: format(day, 'dd MMM yyyy'),
+        total_cash: dayData ? Number(dayData.total_cash) : 0,
+        total_online: dayData ? Number(dayData.total_online) : 0,
+        total_amount: dayData ? Number(dayData.total_amount) : 0,
+      };
+    });
+
+    return formattedDailyRevenue;
+  }
+
   async findAllMonthlyPagination(queryParams: {
     fromDate?: Date | string;
     toDate?: Date | string;
@@ -255,7 +788,6 @@ export class ReportsService {
         }
       }
       queryBuilder.orderBy('qr.id', 'DESC');
-
 
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
@@ -411,7 +943,6 @@ export class ReportsService {
 
       queryBuilder.orderBy('qr.id', 'DESC');
 
-
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
 
@@ -566,7 +1097,6 @@ export class ReportsService {
       }
 
       queryBuilder.orderBy('qr.id', 'DESC');
-
 
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
@@ -1590,47 +2120,47 @@ export class ReportsService {
     const endDate = new Date(date);
     startDate.setUTCHours(0, 0, 0, 0);
     endDate.setUTCHours(23, 59, 59, 999);
-  
+
     const equipmentRes = await this.equipmentRepository.find({
-      select: ['device_name']
+      select: ['device_name'],
     });
     const deviceTypes = equipmentRes.map((equipment) => equipment.device_name);
-    console.log("a", equipmentRes)
-  
+    console.log('a', equipmentRes);
+
     if (!deviceTypes || deviceTypes.length === 0) {
       throw new Error('No devices found in the equipment API response.');
     }
-  
+
     const stations = await this.stationRepository.find({
       select: ['id', 'station_name'],
       order: { id: 'ASC' },
     });
-  
+
     const stationsArr = [];
-  
+
     for (const station of stations) {
       if (station_id && station.id !== station_id) {
         continue;
       }
-  
+
       let stationObj = {
         station_name: station.station_name,
         date: date,
         shifts: [],
       };
-  
+
       const configRes = await axios.get(
         'http://103.186.47.133/inventory/station-devices',
       );
       const stationDevices = configRes.data?.data.find(
         (s) => s.station_name === station.station_name,
       );
-  
+
       for (const deviceType of deviceTypes) {
         const device = stationDevices?.equipments.find(
           (equipment) => equipment.device_name === deviceType,
         );
-  
+
         if (device) {
           const sessions = await this.loginSessionRepository.find({
             where: {
@@ -1653,7 +2183,7 @@ export class ReportsService {
               'no_of_tickets_upi',
             ],
           });
-  
+
           sessions.forEach((session, index) => {
             let shift = {
               name: `Shift ${index + 1}`,
@@ -1670,15 +2200,15 @@ export class ReportsService {
               login_time: session.login_time,
               logout_time: session.logout_time,
             };
-  
+
             stationObj.shifts.push(shift);
           });
         }
       }
-  
+
       stationsArr.push(stationObj);
     }
-  
+
     return stationsArr;
   }
 
@@ -1717,59 +2247,62 @@ export class ReportsService {
       total_amount,
       total_cancelled_amount,
       total_refund_amount,
-      upi_amount
+      upi_amount,
     });
-    const savedSession = await this.loginSessionRepository.save(session)
-    return savedSession
+    const savedSession = await this.loginSessionRepository.save(session);
+    return savedSession;
   }
 
-  async findShiftReport(payload: { fromDate: Date, endDate: Date, station:string }) {
+  async findShiftReport(payload: {
+    fromDate: Date;
+    endDate: Date;
+    station: string;
+  }) {
     try {
-    const { fromDate, endDate, station } = payload
-    const startDate = new Date(fromDate)
-    const toDate = new Date(endDate)
+      const { fromDate, endDate, station } = payload;
+      const startDate = new Date(fromDate);
+      const toDate = new Date(endDate);
 
-    console.log(station)
+      console.log(station);
 
-    startDate.setUTCHours(0, 0, 0, 0);
-    toDate.setUTCHours(23, 59, 59, 999);
-    let where: any = {
-      login_time: Between(startDate, toDate)
+      startDate.setUTCHours(0, 0, 0, 0);
+      toDate.setUTCHours(23, 59, 59, 999);
+      let where: any = {
+        login_time: Between(startDate, toDate),
+      };
+      if (station) {
+        where.station = { id: station };
+      }
+      console.log(where);
+      const sessions = await this.loginSessionRepository.find({
+        where,
+        relations: ['station', 'user'],
+        select: [
+          'id',
+          'device_id',
+          'station',
+          'shift_id',
+          'total_amount',
+          'cash_amount',
+          'upi_amount',
+          'no_of_tickets',
+          'no_of_tickets_cash',
+          'no_of_tickets_upi',
+          'no_of_refund',
+          'total_refund_amount',
+          'no_of_cancelled',
+          'total_cancelled_amount',
+          'login_time',
+          'logout_time',
+          'user',
+        ],
+      });
+      return { data: sessions };
+    } catch (err) {
+      console.log(err);
+      throw new BadRequestException('Something went wrong');
     }
-    if(station) {
-      where.station = {id:station}
-    }
-    console.log(where)
-    const sessions = await this.loginSessionRepository.find({where, relations: ["station", "user"],
-      select: [
-        "id",
-        "device_id",
-        "station",
-        "shift_id",
-        "total_amount",
-        "cash_amount",
-        "upi_amount",
-        "no_of_tickets",
-        "no_of_tickets_cash",
-        "no_of_tickets_upi",
-        "no_of_refund",
-        "total_refund_amount",
-        "no_of_cancelled",
-        "total_cancelled_amount",
-        "login_time",
-        "logout_time",
-        "user",
-      ],
-
-    });
-    return { data: sessions }
-  } 
-  catch (err) {
-    console.log(err)
-    throw new BadRequestException("Something went wrong")
   }
-  }
-  
 
   findOne(id: number) {
     return `This action returns a #${id} report`;
