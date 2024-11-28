@@ -524,6 +524,75 @@ export class ReportsService {
   // }
 
 
+  // async getDashboardAnalyticsMonthly() {
+  //   let stations: any[] = [];
+  
+  //   stations = await this.stationRepository.find({
+  //     select: ['id', 'station_name'],
+  //   });
+  
+  //   const responseData: any[] = [];
+  
+  //   const timezone = 'Asia/Kolkata'; 
+  //   const currentDate = new Date();
+  //   const currentMonth = currentDate.getMonth();
+  //   const currentYear = currentDate.getFullYear();
+  
+  //   for (let month = 0; month < 12; month++) {
+  //     const startOfMonthDate = startOfMonth(new Date(currentYear, month)); 
+  //     const endOfMonthDate = endOfMonth(new Date(currentYear, month)); 
+  
+  //     const start = new Date(startOfMonthDate);
+  //     const end = new Date(endOfMonthDate);
+  
+  //     const { total_amount, total_no_of_tickets, total_cash, total_online } =
+  //       await this.transactionRepository
+  //         .createQueryBuilder('transaction')
+  //         .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
+  //         .addSelect(
+  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+  //           'total_cash',
+  //         )
+  //         .addSelect(
+  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+  //           'total_online',
+  //         )
+  //         .addSelect('COALESCE(SUM(transaction.no_of_tickets), 0)', 'total_no_of_tickets')
+  //         .where('transaction.created_at BETWEEN :start AND :end', {
+  //           start: start.toISOString(),
+  //           end: end.toISOString(),
+  //         })
+  //         .getRawOne();
+  
+  //     const qrData = await this.qrRepository
+  //       .createQueryBuilder('qr')
+  //       .select(
+  //         'COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count'
+  //       )
+  //       .addSelect(
+  //         'COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count'
+  //       )
+  //       .where('qr.qr_date_time BETWEEN :start AND :end', {
+  //         start: start.toISOString(),
+  //         end: end.toISOString(),
+  //       })
+  //       .getRawOne();
+  
+  //     responseData.push({
+  //       month: start.toLocaleString('default', { month: 'long' }), 
+  //       year: currentYear,
+  //       total_cash: total_cash ? Number(total_cash) : 0,
+  //       total_online: total_online ? Number(total_online) : 0,
+  //       total_amount: total_amount ? Number(total_amount) : 0,
+  //       total_no_of_tickets: total_no_of_tickets ? Number(total_no_of_tickets) : 0,
+  //       total_entry_count: parseInt(qrData.total_entry_count, 10),
+  //       total_exit_count: parseInt(qrData.total_exit_count, 10),
+  //     });
+  //   }
+  
+  //   return responseData;
+  // }
+
   async getDashboardAnalyticsMonthly() {
     let stations: any[] = [];
   
@@ -533,14 +602,13 @@ export class ReportsService {
   
     const responseData: any[] = [];
   
-    const timezone = 'Asia/Kolkata'; 
+    const timezone = 'Asia/Kolkata';
     const currentDate = new Date();
-    const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
   
     for (let month = 0; month < 12; month++) {
-      const startOfMonthDate = startOfMonth(new Date(currentYear, month)); 
-      const endOfMonthDate = endOfMonth(new Date(currentYear, month)); 
+      const startOfMonthDate = startOfMonth(new Date(currentYear, month));
+      const endOfMonthDate = endOfMonth(new Date(currentYear, month));
   
       const start = new Date(startOfMonthDate);
       const end = new Date(endOfMonthDate);
@@ -564,34 +632,40 @@ export class ReportsService {
           })
           .getRawOne();
   
-      const qrData = await this.qrRepository
-        .createQueryBuilder('qr')
-        .select(
-          'COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count'
-        )
-        .addSelect(
-          'COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count'
-        )
-        .where('qr.qr_date_time BETWEEN :start AND :end', {
-          start: start.toISOString(),
-          end: end.toISOString(),
-        })
-        .getRawOne();
+      // const qrData = await this.qrRepository
+      //   .createQueryBuilder('qr')
+      //   .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
+      //   .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+      //   .where('qr.qr_date_time BETWEEN :start AND :end', {
+      //     start: start.toISOString(),
+      //     end: end.toISOString(),
+      //   })
+      //   .getRawOne();
+  
+      const formattedMonthYear = `${start
+        .toLocaleString('default', { month: 'short' })
+        .toUpperCase()}${String(currentYear).slice(2)}`; 
   
       responseData.push({
-        month: start.toLocaleString('default', { month: 'long' }), 
-        year: currentYear,
+        month_year: formattedMonthYear,
         total_cash: total_cash ? Number(total_cash) : 0,
         total_online: total_online ? Number(total_online) : 0,
         total_amount: total_amount ? Number(total_amount) : 0,
         total_no_of_tickets: total_no_of_tickets ? Number(total_no_of_tickets) : 0,
-        total_entry_count: parseInt(qrData.total_entry_count, 10),
-        total_exit_count: parseInt(qrData.total_exit_count, 10),
+        // total_entry_count: parseInt(qrData.total_entry_count, 10),
+        // total_exit_count: parseInt(qrData.total_exit_count, 10),
       });
     }
   
-    return responseData;
+    return {
+      status: 'success',
+      status_code: 200,
+      message: 'Request was successful',
+      data: responseData,
+    };
   }
+  
+  
   async getDashboardAnalyticsByStationDaily(params: {
     fromDate?: Date | string;
     toDate?: Date | string;
