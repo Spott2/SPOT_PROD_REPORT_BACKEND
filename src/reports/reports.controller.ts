@@ -52,6 +52,11 @@ export class ReportsController {
     return this.reportsService.getDashboardAnalyticsAllStation();
   }
 
+  @Get('get-dashboard-analytics-monthly')
+  getDashboardAnalyticsMonthly() {
+    return this.reportsService.getDashboardAnalyticsMonthly();
+  }
+
   
   @Post()
   create(@Body() createReportDto: CreateReportDto) {
