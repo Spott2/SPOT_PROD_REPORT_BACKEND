@@ -29,6 +29,11 @@ export class ReportsController {
   async getDashboardAnalyticsByStation(@Param('stationId') stationId: number) {
     return this.reportsService.getDashboardAnalyticsByStation(stationId);
   }
+
+  @Get('get-dashboard-analytics-daily')
+  async getDashboardAnalyticsForToday() {
+    return this.reportsService.getDashboardAnalyticsForToday();
+  }
   // GRAPH ENDS
 
   @Post('get-dashboard-analytics-by-station-daily')
