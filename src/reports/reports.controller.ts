@@ -13,6 +13,7 @@ import {
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
+import { LoginSessionInput } from './commonTypes';
 
 @Controller('reports')
 export class ReportsController {
@@ -251,6 +252,17 @@ export class ReportsController {
       body.date,
       body.station,
     );
+  }
+
+
+  @Post('shift-report')
+  shiftReport(@Body() body: LoginSessionInput) {
+    return this.reportsService.shiftReport(body);
+  }
+
+  @Post('find-shift-report')
+  findShiftReport(@Body() body: { fromDate: Date, endDate: Date, station: string }) {
+    return this.reportsService.findShiftReport(body);
   }
 
   @Get(':id')
