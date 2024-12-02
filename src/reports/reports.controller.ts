@@ -19,6 +19,49 @@ import { LoginSessionInput } from './commonTypes';
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
+
+  @Get('get-dashboard-analytics')
+  async getDashboardAnalytics() {
+    return this.reportsService.getDashboardAnalytics();
+  }
+
+  @Get('get-dashboard-analytics-by-station/:stationId')
+  async getDashboardAnalyticsByStation(@Param('stationId') stationId: number) {
+    return this.reportsService.getDashboardAnalyticsByStation(stationId);
+  }
+
+  @Get('get-dashboard-analytics-daily')
+  async getDashboardAnalyticsForToday() {
+    return this.reportsService.getDashboardAnalyticsForToday();
+  }
+  // GRAPH ENDS
+
+  @Post('get-dashboard-analytics-by-station-daily')
+  getDashboardAnalyticsByStationDaily(
+    @Body()
+    body: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      stationId?: number | null;
+    },
+  ) {
+    return this.reportsService.getDashboardAnalyticsByStationDaily({
+      fromDate: body.fromDate,
+      toDate: body.toDate,
+      stationId: body.stationId ?? null,
+    });
+  }
+
+  @Get('get-dashboard-analytics-all-station')
+  getDashboardAnalyticsAllStation() {
+    return this.reportsService.getDashboardAnalyticsAllStation();
+  }
+
+  @Get('get-dashboard-analytics-monthly')
+  getDashboardAnalyticsMonthly() {
+    return this.reportsService.getDashboardAnalyticsMonthly();
+  }
+  
   @Post()
   create(@Body() createReportDto: CreateReportDto) {
     return this.reportsService.create(createReportDto);
