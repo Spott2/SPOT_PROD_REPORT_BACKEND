@@ -29,14 +29,13 @@ export class ReportsService {
 
     @InjectRepository(LoginSession)
     private loginSessionRepository: Repository<LoginSession>,
-    
+
     @InjectRepository(Equipment)
     private equipmentRepository: Repository<Equipment>,
   ) {}
   create(createReportDto: CreateReportDto) {
     return 'This action adds a new report';
   }
-
 
   async getDashboardAnalytics() {
     const stations = await this.stationRepository.find();
@@ -202,23 +201,23 @@ export class ReportsService {
 
   async getDashboardAnalyticsForToday() {
     const currentDate = new Date();
-  
+
     // Adjust for Indian Standard Time (UTC+5:30)
     const istOffset = 5.5 * 60 * 60 * 1000; // Offset in milliseconds
     const istStartOfDay = new Date(currentDate.getTime() + istOffset);
     istStartOfDay.setUTCHours(0, 0, 0, 0); // Start of the day in IST
-  
+
     const istEndOfDay = new Date(istStartOfDay);
     istEndOfDay.setUTCHours(23, 59, 59, 999); // End of the day in IST
-  
+
     const formatDate = (date: Date) => {
       const day = date.getDate();
       const month = date.toLocaleString('default', { month: 'short' });
       return `${day}${day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th'} ${month}`;
     };
-  
+
     const stations = await this.stationRepository.find(); // Fetch all stations
-  
+
     const todayData = await Promise.all(
       stations.map(async (station) => {
         // Transaction query for total amount
@@ -246,7 +245,7 @@ export class ReportsService {
               stationId: station.id,
             })
             .getRawOne();
-  
+
         // Qr query for entry and exit counts
         const qrData = await this.qrRepository
           .createQueryBuilder('qr')
@@ -256,11 +255,14 @@ export class ReportsService {
             start: istStartOfDay.toISOString(),
             end: istEndOfDay.toISOString(),
           })
-          .andWhere('(qr.source_id = :stationId OR qr.destination_id = :stationId)', {
-            stationId: station.id,
-          })
+          .andWhere(
+            '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+            {
+              stationId: station.id,
+            },
+          )
           .getRawOne();
-  
+
         return {
           station_id: station.id,
           station_name: station.station_name,
@@ -276,10 +278,9 @@ export class ReportsService {
         };
       }),
     );
-  
+
     return todayData;
   }
-  
 
   // async getDashboardAnalyticsByStationDaily(
   //   fromDate?: Date | string,
@@ -603,24 +604,24 @@ export class ReportsService {
 
   async getDashboardAnalyticsMonthly() {
     let stations: any[] = [];
-  
+
     stations = await this.stationRepository.find({
       select: ['id', 'station_name'],
     });
-  
+
     const responseData: any[] = [];
-  
+
     const timezone = 'Asia/Kolkata';
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
-  
+
     for (let month = 0; month < 12; month++) {
       const startOfMonthDate = startOfMonth(new Date(currentYear, month));
       const endOfMonthDate = endOfMonth(new Date(currentYear, month));
-  
+
       const start = new Date(startOfMonthDate);
       const end = new Date(endOfMonthDate);
-  
+
       const { total_amount, total_no_of_tickets, total_cash, total_online } =
         await this.transactionRepository
           .createQueryBuilder('transaction')
@@ -633,13 +634,16 @@ export class ReportsService {
             "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
             'total_online',
           )
-          .addSelect('COALESCE(SUM(transaction.no_of_tickets), 0)', 'total_no_of_tickets')
+          .addSelect(
+            'COALESCE(SUM(transaction.no_of_tickets), 0)',
+            'total_no_of_tickets',
+          )
           .where('transaction.created_at BETWEEN :start AND :end', {
             start: start.toISOString(),
             end: end.toISOString(),
           })
           .getRawOne();
-  
+
       // const qrData = await this.qrRepository
       //   .createQueryBuilder('qr')
       //   .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
@@ -649,22 +653,24 @@ export class ReportsService {
       //     end: end.toISOString(),
       //   })
       //   .getRawOne();
-  
+
       const formattedMonthYear = `${start
         .toLocaleString('default', { month: 'short' })
-        .toUpperCase()}-${String(currentYear).slice(2)}`; 
-  
+        .toUpperCase()}-${String(currentYear).slice(2)}`;
+
       responseData.push({
         month_year: formattedMonthYear,
         total_cash: total_cash ? Number(total_cash) : 0,
         total_online: total_online ? Number(total_online) : 0,
         total_amount: total_amount ? Number(total_amount) : 0,
-        total_no_of_tickets: total_no_of_tickets ? Number(total_no_of_tickets) : 0,
+        total_no_of_tickets: total_no_of_tickets
+          ? Number(total_no_of_tickets)
+          : 0,
         // total_entry_count: parseInt(qrData.total_entry_count, 10),
         // total_exit_count: parseInt(qrData.total_exit_count, 10),
       });
     }
-  
+
     return {
       status: 'success',
       status_code: 200,
@@ -672,8 +678,7 @@ export class ReportsService {
       data: responseData,
     };
   }
-  
-  
+
   async getDashboardAnalyticsByStationDaily(params: {
     fromDate?: Date | string;
     toDate?: Date | string;
@@ -681,19 +686,23 @@ export class ReportsService {
   }) {
     const { fromDate, toDate, stationId } = params;
 
-    let station: any = null;
     let stations: any[] = [];
 
     if (stationId) {
-      station = await this.stationRepository.findOne({
+      stations = await this.stationRepository.find({
         where: { id: stationId },
+        select: ['id', 'station_name'],
+        order: {
+          id: "ASC"
+        }
       });
-      if (!station) {
-        throw new Error(`Station with ID ${stationId} not found`);
-      }
+     
     } else {
       stations = await this.stationRepository.find({
         select: ['id', 'station_name'],
+        order: {
+          id: "ASC"
+        }
       });
     }
 
@@ -711,9 +720,8 @@ export class ReportsService {
 
     const responseData = [];
 
-    const stationList = stationId ? [station] : stations;
 
-    for (const currentStation of stationList) {
+    for (const currentStation of stations) {
       const { total_amount, total_no_of_tickets, total_cash, total_online } =
         await this.transactionRepository
           .createQueryBuilder('transaction')
@@ -738,20 +746,6 @@ export class ReportsService {
             stationId: currentStation.id,
           })
           .getRawOne();
-
-      // const qrData = await this.qrRepository
-      //   .createQueryBuilder('qr')
-      //   .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
-      //   .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-      //   .where('qr.qr_date_time BETWEEN :start AND :end', {
-      //     start: start.toISOString(),
-      //     end: end.toISOString(),
-      //   })
-      //   .andWhere(
-      //     '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
-      //     { stationId: currentStation.id },
-      //   )
-      //   .getRawOne();
 
       const qrData = await this.qrRepository
         .createQueryBuilder('qr')
@@ -794,19 +788,19 @@ export class ReportsService {
     const today = new Date();
     const start = startOfMonth(today);
     const end = endOfMonth(today);
-  
+
     const IST_OFFSET = 5.5 * 60 * 60 * 1000;
     const startDate = new Date(start.getTime() + IST_OFFSET);
     const endDate = new Date(end.getTime() + IST_OFFSET);
-  
+
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
-  
+
     const allDates = eachDayOfInterval({
       start: startOfMonth(today),
       end: endOfMonth(today),
     });
-  
+
     const dailyRevenue = await this.transactionRepository
       .createQueryBuilder('transaction')
       .select([
@@ -822,16 +816,16 @@ export class ReportsService {
       .groupBy('DATE(transaction.created_at)')
       .orderBy('DATE(transaction.created_at)', 'ASC')
       .getRawMany();
-  
+
     console.log('Daily Revenue Data:', dailyRevenue);
-  
+
     const formattedDailyRevenue = allDates.map((day) => {
       const dayString = format(day, 'yyyy-MM-dd');
-  
+
       const dayData = dailyRevenue.find(
         (revenue) => format(new Date(revenue.date), 'yyyy-MM-dd') === dayString,
       );
-  
+
       return {
         date: format(day, 'dd MMM yyyy'),
         total_cash: dayData ? Number(dayData.total_cash) : 0,
@@ -839,16 +833,14 @@ export class ReportsService {
         total_amount: dayData ? Number(dayData.total_amount) : 0,
       };
     });
-  
+
     return {
-      status: "success",
+      status: 'success',
       status_code: 200,
-      message: "Request was successful",
+      message: 'Request was successful',
       data: formattedDailyRevenue,
     };
   }
-  
-
 
   async findAllMonthlyPagination(queryParams: {
     fromDate?: Date | string;
@@ -901,7 +893,6 @@ export class ReportsService {
         }
       }
       queryBuilder.orderBy('qr.id', 'DESC');
-
 
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
@@ -1036,7 +1027,6 @@ export class ReportsService {
 
       queryBuilder.orderBy('qr.id', 'DESC');
 
-
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
 
@@ -1170,7 +1160,6 @@ export class ReportsService {
       }
 
       queryBuilder.orderBy('qr.id', 'DESC');
-
 
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
@@ -1618,7 +1607,6 @@ export class ReportsService {
             .where('transaction.created_at BETWEEN :start AND :end', {
               start: startDate,
               end: endDate,
-              
             })
             // .andWhere('transaction.source_id IS NOT NULL')
             .andWhere('(transaction.source_id = :stationId)', {
@@ -1669,14 +1657,12 @@ export class ReportsService {
           //   })
           //   .getRawOne();
 
-          deviceTotal.upi =
-            parseInt(result.upi || 0) ;
-            // parseInt(result?.admin_fee_upi_revenue || 0) +
-            // parseInt(penaltyTransactions?.penalty_upi || 0);
-          deviceTotal.cash =
-            parseInt(result.cash || 0) ;
-            // parseInt(result?.admin_fee_cash_revenue || 0) +
-            // parseInt(penaltyTransactions?.penalty_cash || 0);
+          deviceTotal.upi = parseInt(result.upi || 0);
+          // parseInt(result?.admin_fee_upi_revenue || 0) +
+          // parseInt(penaltyTransactions?.penalty_upi || 0);
+          deviceTotal.cash = parseInt(result.cash || 0);
+          // parseInt(result?.admin_fee_cash_revenue || 0) +
+          // parseInt(penaltyTransactions?.penalty_cash || 0);
         }
         // stationObj.cash_total = stationObj.cash_total + deviceTotal.cash;
         // stationObj.upi_total = stationObj.upi_total + deviceTotal.upi;
@@ -1847,9 +1833,6 @@ export class ReportsService {
 
     const stationArr = [];
     for (const station of stations) {
-      if (station_id && station.id !== station_id) {
-        continue;
-      }
 
       const stationObj = {
         station: station.station_name,
@@ -1874,7 +1857,7 @@ export class ReportsService {
           'CAST(session.cash_amount AS INTEGER) as cash_amount',
           'CAST(session.upi_amount as INTEGER) as upi_amount',
           'CAST(session.no_of_tickets AS INTEGER) as no_of_tickets',
-          'CAST(session.device_id AS INTEGER) as device_id',
+          'session.device_id as device_id',
           'CAST(session.no_of_tickets_cash AS INTEGER) as no_of_tickets_cash',
           'CAST(session.no_of_tickets_upi AS INTEGER) as no_of_tickets_upi',
           'CAST(session.no_of_refund AS INTEGER) as no_of_refund',
@@ -1886,7 +1869,6 @@ export class ReportsService {
         .orderBy('session.created_at', 'ASC')
         .getRawMany();
 
-      // Map the shifts to individual device entries
       shifts.forEach((shift) => {
         const deviceEntry = {
           device: shift.device_id,
@@ -2163,51 +2145,30 @@ export class ReportsService {
     const endDate = new Date(date);
     startDate.setUTCHours(0, 0, 0, 0);
     endDate.setUTCHours(23, 59, 59, 999);
-  
-    const equipmentRes = await this.equipmentRepository.find({
-      select: ['device_name']
-    });
-    const deviceTypes = equipmentRes.map((equipment) => equipment.device_name);
-    console.log("a", equipmentRes)
-  
-    if (!deviceTypes || deviceTypes.length === 0) {
-      throw new Error('No devices found in the equipment API response.');
-    }
-  
+
     const stations = await this.stationRepository.find({
       select: ['id', 'station_name'],
       order: { id: 'ASC' },
     });
-  
+
     const stationsArr = [];
-  
+
     for (const station of stations) {
-      if (station_id && station.id !== station_id) {
-        continue;
-      }
-  
+
       let stationObj = {
         station_name: station.station_name,
         date: date,
         shifts: [],
       };
-  
-      const configRes = await axios.get(
-        'http://103.186.47.133/inventory/station-devices',
-      );
-      const stationDevices = configRes.data?.data.find(
-        (s) => s.station_name === station.station_name,
-      );
-  
-      for (const deviceType of deviceTypes) {
-        const device = stationDevices?.equipments.find(
-          (equipment) => equipment.device_name === deviceType,
-        );
-  
-        if (device) {
+
+      const stationDevices = await this.equipmentRepository.find({
+        where: { station: { id: station.id } },
+      });
+
+      for (const stationDevice of stationDevices) {
           const sessions = await this.loginSessionRepository.find({
             where: {
-              device_id: device.device_id,
+              device_id: stationDevice.device_id,
               created_at: Between(startDate, endDate),
             },
             select: [
@@ -2226,12 +2187,12 @@ export class ReportsService {
               'no_of_tickets_upi',
             ],
           });
-  
+
           sessions.forEach((session, index) => {
             let shift = {
-              name: `Shift ${index + 1}`,
+              name: session.shift_id,
               shift_id: session.shift_id,
-              device_id: device.device_name,
+              device_id: stationDevice.device_name,
               total_amount: session.total_amount,
               cash_amount: session.cash_amount,
               upi_amount: session.upi_amount,
@@ -2243,18 +2204,18 @@ export class ReportsService {
               login_time: session.login_time,
               logout_time: session.logout_time,
             };
-  
+
             stationObj.shifts.push(shift);
           });
         }
-      }
-  
+      
+
       stationsArr.push(stationObj);
+    
     }
-  
+
     return stationsArr;
   }
-
 
   async shiftReport(payload: LoginSessionInput) {
     const {
@@ -2291,59 +2252,62 @@ export class ReportsService {
       total_amount,
       total_cancelled_amount,
       total_refund_amount,
-      upi_amount
+      upi_amount,
     });
-    const savedSession = await this.loginSessionRepository.save(session)
-    return savedSession
+    const savedSession = await this.loginSessionRepository.save(session);
+    return savedSession;
   }
 
-  async findShiftReport(payload: { fromDate: Date, endDate: Date, station:string }) {
+  async findShiftReport(payload: {
+    fromDate: Date;
+    endDate: Date;
+    station: string;
+  }) {
     try {
-    const { fromDate, endDate, station } = payload
-    const startDate = new Date(fromDate)
-    const toDate = new Date(endDate)
+      const { fromDate, endDate, station } = payload;
+      const startDate = new Date(fromDate);
+      const toDate = new Date(endDate);
 
-    console.log(station)
+      console.log(station);
 
-    startDate.setUTCHours(0, 0, 0, 0);
-    toDate.setUTCHours(23, 59, 59, 999);
-    let where: any = {
-      login_time: Between(startDate, toDate)
+      startDate.setUTCHours(0, 0, 0, 0);
+      toDate.setUTCHours(23, 59, 59, 999);
+      let where: any = {
+        login_time: Between(startDate, toDate),
+      };
+      if (station) {
+        where.station = { id: station };
+      }
+      console.log(where);
+      const sessions = await this.loginSessionRepository.find({
+        where,
+        relations: ['station', 'user'],
+        select: [
+          'id',
+          'device_id',
+          'station',
+          'shift_id',
+          'total_amount',
+          'cash_amount',
+          'upi_amount',
+          'no_of_tickets',
+          'no_of_tickets_cash',
+          'no_of_tickets_upi',
+          'no_of_refund',
+          'total_refund_amount',
+          'no_of_cancelled',
+          'total_cancelled_amount',
+          'login_time',
+          'logout_time',
+          'user',
+        ],
+      });
+      return { data: sessions };
+    } catch (err) {
+      console.log(err);
+      throw new BadRequestException('Something went wrong');
     }
-    if(station) {
-      where.station = {id:station}
-    }
-    console.log(where)
-    const sessions = await this.loginSessionRepository.find({where, relations: ["station", "user"],
-      select: [
-        "id",
-        "device_id",
-        "station",
-        "shift_id",
-        "total_amount",
-        "cash_amount",
-        "upi_amount",
-        "no_of_tickets",
-        "no_of_tickets_cash",
-        "no_of_tickets_upi",
-        "no_of_refund",
-        "total_refund_amount",
-        "no_of_cancelled",
-        "total_cancelled_amount",
-        "login_time",
-        "logout_time",
-        "user",
-      ],
-
-    });
-    return { data: sessions }
-  } 
-  catch (err) {
-    console.log(err)
-    throw new BadRequestException("Something went wrong")
   }
-  }
-  
 
   findOne(id: number) {
     return `This action returns a #${id} report`;
