@@ -150,7 +150,7 @@ export class ReportsService {
             'total_cash',
           )
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+            "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('online', 'credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
             'total_online',
           )
           .addSelect(
