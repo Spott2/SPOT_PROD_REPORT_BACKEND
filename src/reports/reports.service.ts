@@ -532,6 +532,7 @@ export class ReportsService {
       .groupBy('DATE(transaction.created_at)')
       .orderBy('DATE(transaction.created_at)', 'ASC')
       .getRawMany();
+      
 
     console.log('Daily Revenue Data:', dailyRevenue);
 
