@@ -529,10 +529,11 @@ export class ReportsService {
         start: startDate.toISOString(),
         end: endDate.toISOString(),
       })
+      
       .groupBy('DATE(transaction.created_at)')
       .orderBy('DATE(transaction.created_at)', 'ASC')
       .getRawMany();
-      
+
 
     console.log('Daily Revenue Data:', dailyRevenue);
 
