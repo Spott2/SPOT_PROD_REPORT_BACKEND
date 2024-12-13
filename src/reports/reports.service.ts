@@ -49,13 +49,22 @@ export class ReportsService {
       .addSelect('SUM(transaction.amount)', 'total_amount')
       .addSelect('SUM(transaction.no_of_tickets)', 'total_no_of_tickets')
       .addSelect(
-        "SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END)",
+        "SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END)",
         'total_cash',
       )
       .addSelect(
-        "SUM(CASE WHEN transaction.payment_mode IN ('online', 'credit_card', 'upi') THEN transaction.amount ELSE 0 END)",
+        `
+        SUM(CASE 
+            WHEN transaction.payment_mode ILIKE 'online' OR 
+                 transaction.payment_mode ILIKE 'credit_card' OR 
+                 transaction.payment_mode ILIKE 'upi' 
+            THEN transaction.amount 
+            ELSE 0 
+        END)
+        `,
         'total_online',
       )
+
       .where('transaction.created_at::date = :currentDate', { currentDate })
       .groupBy('station.id')
       .getRawMany();
@@ -146,13 +155,22 @@ export class ReportsService {
           .createQueryBuilder('transaction')
           .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+            "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
             'total_cash',
           )
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('online', 'credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+            `
+            SUM(CASE 
+                WHEN transaction.payment_mode ILIKE 'online' OR 
+                     transaction.payment_mode ILIKE 'credit_card' OR 
+                     transaction.payment_mode ILIKE 'upi' 
+                THEN transaction.amount 
+                ELSE 0 
+            END)
+            `,
             'total_online',
           )
+
           .addSelect(
             'COALESCE(SUM(transaction.no_of_tickets), 0)',
             'total_no_of_tickets',
@@ -226,11 +244,19 @@ export class ReportsService {
             .createQueryBuilder('transaction')
             .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
             .addSelect(
-              "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+              "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
               'total_cash',
             )
             .addSelect(
-              "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+              `
+              SUM(CASE 
+                  WHEN transaction.payment_mode ILIKE 'online' OR 
+                       transaction.payment_mode ILIKE 'credit_card' OR 
+                       transaction.payment_mode ILIKE 'upi' 
+                  THEN transaction.amount 
+                  ELSE 0 
+              END)
+              `,
               'total_online',
             )
             .addSelect(
@@ -282,326 +308,6 @@ export class ReportsService {
     return todayData;
   }
 
-  // async getDashboardAnalyticsByStationDaily(
-  //   fromDate?: Date | string,
-  //   toDate?: Date | string,
-  //   stationId?: number
-  // )
-  // {
-  //   let station: any = null;
-  //   let stations: any[] = [];
-
-  //   if (stationId) {
-  //     station = await this.stationRepository.findOne({
-  //       where: { id: stationId },
-  //     });
-  //     if (!station) {
-  //       throw new Error(`Station with ID ${stationId} not found`);
-  //     }
-  //   } else {
-  //     stations = await this.stationRepository.find({
-  //       select: ['id', 'station_name'],
-  //     });
-  //   }
-
-  //   const start = new Date(fromDate);
-  //   const end = new Date(toDate);
-
-  //   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-  //     throw new Error(
-  //       'Invalid date format. Use ISO format for fromDate and toDate.',
-  //     );
-  //   }
-
-  //   start.setHours(0, 0, 0, 0);
-  //   end.setHours(23, 59, 59, 999);
-
-  //   const responseData = [];
-
-  //   const stationList = stationId ? [station] : stations;
-
-  //   for (const currentStation of stationList) {
-  //     const { total_amount, total_no_of_tickets, total_cash, total_online } =
-  //       await this.transactionRepository
-  //         .createQueryBuilder('transaction')
-  //         .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
-  //         .addSelect(
-  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
-  //           'total_cash',
-  //         )
-  //         .addSelect(
-  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
-  //           'total_online',
-  //         )
-  //         .addSelect(
-  //           'COALESCE(SUM(transaction.no_of_tickets), 0)',
-  //           'total_no_of_tickets',
-  //         )
-  //         .where('transaction.created_at BETWEEN :start AND :end', {
-  //           start: start.toISOString(),
-  //           end: end.toISOString(),
-  //         })
-  //         .andWhere(
-  //           stationId
-  //             ? 'transaction.station = :stationId'
-  //             : 'transaction.station = :currentStationId',
-  //           { stationId: stationId ?? currentStation.id },
-  //         )
-  //         .getRawOne();
-
-  //     const qrData = await this.qrRepository
-  //       .createQueryBuilder('qr')
-  //       .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
-  //       .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-  //       .where('qr.qr_date_time BETWEEN :start AND :end', {
-  //         start: start.toISOString(),
-  //         end: end.toISOString(),
-  //       })
-  //       .andWhere(
-  //         stationId
-  //           ? '(qr.source_id = :stationId OR qr.destination_id = :stationId)'
-  //           : '(qr.source_id = :currentStationId OR qr.destination_id = :currentStationId)',
-  //         { stationId: stationId ?? currentStation.id },
-  //       )
-  //       .getRawOne();
-
-  //     responseData.push({
-  //       station_id: currentStation.id,
-  //       station_name: currentStation.station_name,
-  //       total_cash: total_cash ? Number(total_cash) : 0,
-  //       total_online: total_online ? Number(total_online) : 0,
-  //       total_amount: total_amount ? Number(total_amount) : 0,
-  //       total_no_of_tickets: total_no_of_tickets
-  //         ? Number(total_no_of_tickets)
-  //         : 0,
-  //       total_entry_count: parseInt(qrData.total_entry_count, 10),
-  //       total_exit_count: parseInt(qrData.total_exit_count, 10),
-  //     });
-  //   }
-
-  //   return {
-  //     data: responseData,
-  //     date_range: {
-  //       from: fromDate,
-  //       to: toDate,
-  //     },
-  //   };
-  // }
-
-  // async getDashboardAnalyticsByStationDaily(params: {
-  //   fromDate?: Date | string;
-  //   toDate?: Date | string;
-  //   stationId?: number | null;
-  // }) {
-  //   const { fromDate, toDate, stationId } = params;
-
-  //   let station: any = null;
-  //   let stations: any[] = [];
-
-  //   if (stationId) {
-  //     station = await this.stationRepository.findOne({
-  //       where: { id: stationId },
-  //     });
-  //     if (!station) {
-  //       throw new Error(`Station with ID ${stationId} not found`);
-  //     }
-  //   } else {
-  //     stations = await this.stationRepository.find({
-  //       select: ['id', 'station_name'],
-  //     });
-  //   }
-
-  //   const start = new Date(fromDate);
-  //   const end = new Date(toDate);
-
-  //   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-  //     throw new Error(
-  //       'Invalid date format. Use ISO format for fromDate and toDate.',
-  //     );
-  //   }
-
-  //   start.setHours(0, 0, 0, 0);
-  //   end.setHours(23, 59, 59, 999);
-
-  //   const responseData = [];
-
-  //   const stationList = stationId ? [station] : stations;
-
-  //   for (const currentStation of stationList) {
-  //     const { total_amount, total_no_of_tickets, total_cash, total_online } =
-  //       await this.transactionRepository
-  //         .createQueryBuilder('transaction')
-  //         .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
-  //         .addSelect(
-  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
-  //           'total_cash',
-  //         )
-  //         .addSelect(
-  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
-  //           'total_online',
-  //         )
-  //         .addSelect(
-  //           'COALESCE(SUM(transaction.no_of_tickets), 0)',
-  //           'total_no_of_tickets',
-  //         )
-  //         .where('transaction.created_at BETWEEN :start AND :end', {
-  //           start: start.toISOString(),
-  //           end: end.toISOString(),
-  //         })
-  //         .andWhere(
-  //           stationId
-  //             ? 'transaction.station = :stationId'
-  //             : 'transaction.station = :currentStationId',
-  //           { stationId: stationId ?? currentStation.id },
-  //         )
-  //         .getRawOne();
-
-  //     const qrData = await this.qrRepository
-  //       .createQueryBuilder('qr')
-  //       .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
-  //       .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-  //       .where('qr.qr_date_time BETWEEN :start AND :end', {
-  //         start: start.toISOString(),
-  //         end: end.toISOString(),
-  //       })
-  //       .andWhere(
-  //         stationId
-  //           ? '(qr.source_id = :stationId OR qr.destination_id = :stationId)'
-  //           : '(qr.source_id = :currentStationId OR qr.destination_id = :currentStationId)',
-  //         { stationId: stationId ?? currentStation.id },
-  //       )
-  //       .getRawOne();
-
-  //     responseData.push({
-  //       station_id: currentStation.id,
-  //       station_name: currentStation.station_name,
-  //       total_cash: total_cash ? Number(total_cash) : 0,
-  //       total_online: total_online ? Number(total_online) : 0,
-  //       total_amount: total_amount ? Number(total_amount) : 0,
-  //       total_no_of_tickets: total_no_of_tickets
-  //         ? Number(total_no_of_tickets)
-  //         : 0,
-  //       total_entry_count: parseInt(qrData.total_entry_count, 10),
-  //       total_exit_count: parseInt(qrData.total_exit_count, 10),
-  //     });
-  //   }
-
-  //   return {
-  //     data: responseData,
-  //     date_range: {
-  //       from: fromDate,
-  //       to: toDate,
-  //     },
-  //   };
-  // }
-
-  // async getDashboardAnalyticsByStationDaily(params: {
-  //   fromDate?: Date | string;
-  //   toDate?: Date | string;
-  //   stationId?: number | null;
-  // }) {
-  //   const { fromDate, toDate, stationId } = params;
-
-  //   let station: any = null;
-  //   let stations: any[] = [];
-
-  //   if (stationId) {
-  //     station = await this.stationRepository.findOne({
-  //       where: { id: stationId },
-  //     });
-  //     if (!station) {
-  //       throw new Error(`Station with ID ${stationId} not found`);
-  //     }
-  //   } else {
-  //     stations = await this.stationRepository.find({
-  //       select: ['id', 'station_name'],
-  //     });
-  //   }
-
-  //   const start = new Date(fromDate);
-  //   const end = new Date(toDate);
-
-  //   if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-  //     throw new Error(
-  //       'Invalid date format. Use ISO format for fromDate and toDate.',
-  //     );
-  //   }
-
-  //   start.setHours(0, 0, 0, 0);
-  //   end.setHours(23, 59, 59, 999);
-
-  //   const responseData = [];
-
-  //   const stationList = stationId ? [station] : stations;
-
-  //   for (const currentStation of stationList) {
-  //     const { total_amount, total_no_of_tickets, total_cash, total_online } =
-  //       await this.transactionRepository
-  //         .createQueryBuilder('transaction')
-  //         .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
-  //         .addSelect(
-  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
-  //           'total_cash',
-  //         )
-  //         .addSelect(
-  //           "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
-  //           'total_online',
-  //         )
-  //         .addSelect(
-  //           'COALESCE(SUM(transaction.no_of_tickets), 0)',
-  //           'total_no_of_tickets',
-  //         )
-  //         .where('transaction.created_at BETWEEN :start AND :end', {
-  //           start: start.toISOString(),
-  //           end: end.toISOString(),
-  //         })
-  //         .andWhere(stationId ? 'transaction.station = :stationId' : '1=1', {
-  //           stationId: stationId ?? currentStation.id,
-  //         })
-  //         .getRawOne();
-
-  //     const qrData = await this.qrRepository
-  //       .createQueryBuilder('qr')
-  //       .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
-  //       .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-  //       .where('qr.qr_date_time BETWEEN :start AND :end', {
-  //         start: start.toISOString(),
-  //         end: end.toISOString(),
-  //       })
-  //       .andWhere(
-  //         stationId
-  //           ? '(qr.source_id = :stationId OR qr.destination_id = :stationId)'
-  //           : '1=1',
-  //         { stationId: stationId ?? currentStation.id },
-  //       )
-  //       .getRawOne();
-
-  //     responseData.push({
-  //       station_id: currentStation.id,
-  //       station_name: currentStation.station_name,
-  //       total_cash: total_cash ? Number(total_cash) : 0,
-  //       total_online: total_online ? Number(total_online) : 0,
-  //       total_amount: total_amount ? Number(total_amount) : 0,
-  //       total_no_of_tickets: total_no_of_tickets
-  //         ? Number(total_no_of_tickets)
-  //         : 0,
-  //       total_entry_count: parseInt(qrData.total_entry_count, 10),
-  //       total_exit_count: parseInt(qrData.total_exit_count, 10),
-  //     });
-  //   }
-
-  //   // return {
-  //   //   data: responseData,
-  //   //   // date_range: {
-  //   //   //   from: fromDate,
-  //   //   //   to: toDate,
-  //   //   // },
-  //   // };
-
-  //   return responseData;
-
-  // }
-
   async getDashboardAnalyticsMonthly() {
     let stations: any[] = [];
 
@@ -627,11 +333,19 @@ export class ReportsService {
           .createQueryBuilder('transaction')
           .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+            "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
             'total_cash',
           )
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+            `
+            SUM(CASE 
+                WHEN transaction.payment_mode ILIKE 'online' OR 
+                     transaction.payment_mode ILIKE 'credit_card' OR 
+                     transaction.payment_mode ILIKE 'upi' 
+                THEN transaction.amount 
+                ELSE 0 
+            END)
+            `,
             'total_online',
           )
           .addSelect(
@@ -693,16 +407,15 @@ export class ReportsService {
         where: { id: stationId },
         select: ['id', 'station_name'],
         order: {
-          id: "ASC"
-        }
+          id: 'ASC',
+        },
       });
-     
     } else {
       stations = await this.stationRepository.find({
         select: ['id', 'station_name'],
         order: {
-          id: "ASC"
-        }
+          id: 'ASC',
+        },
       });
     }
 
@@ -719,7 +432,6 @@ export class ReportsService {
     end.setHours(23, 59, 59, 999);
 
     const responseData = [];
-
 
     for (const currentStation of stations) {
       const { total_amount, total_no_of_tickets, total_cash, total_online } =
@@ -806,8 +518,12 @@ export class ReportsService {
       .select([
         'DATE(transaction.created_at) AS date',
         'COALESCE(SUM(transaction.amount), 0) AS total_amount',
-        "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
-        "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0) AS total_online",
+        "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
+        `COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'credit_card' 
+          OR transaction.payment_mode ILIKE 'upi' 
+          OR transaction.payment_mode ILIKE 'online' 
+          THEN transaction.amount 
+          ELSE 0 END), 0) AS total_online`,
       ])
       .where('transaction.created_at BETWEEN :start AND :end', {
         start: startDate.toISOString(),
@@ -868,7 +584,9 @@ export class ReportsService {
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -882,13 +600,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -933,7 +651,9 @@ export class ReportsService {
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -947,13 +667,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1000,7 +720,9 @@ export class ReportsService {
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1014,13 +736,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1066,7 +788,9 @@ export class ReportsService {
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1080,13 +804,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1134,7 +858,9 @@ export class ReportsService {
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1148,13 +874,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1200,7 +926,9 @@ export class ReportsService {
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1214,13 +942,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1267,7 +995,9 @@ export class ReportsService {
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1281,13 +1011,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1331,7 +1061,9 @@ export class ReportsService {
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1345,13 +1077,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1833,7 +1565,6 @@ export class ReportsService {
 
     const stationArr = [];
     for (const station of stations) {
-
       const stationObj = {
         station: station.station_name,
         date: date,
@@ -2154,7 +1885,6 @@ export class ReportsService {
     const stationsArr = [];
 
     for (const station of stations) {
-
       let stationObj = {
         station_name: station.station_name,
         date: date,
@@ -2166,52 +1896,50 @@ export class ReportsService {
       });
 
       for (const stationDevice of stationDevices) {
-          const sessions = await this.loginSessionRepository.find({
-            where: {
-              device_id: stationDevice.device_id,
-              created_at: Between(startDate, endDate),
-            },
-            select: [
-              'device_id',
-              'shift_id',
-              'user',
-              'no_of_cancelled',
-              'no_of_refund',
-              'total_amount',
-              'login_time',
-              'logout_time',
-              'cash_amount',
-              'upi_amount',
-              'no_of_tickets',
-              'no_of_tickets_cash',
-              'no_of_tickets_upi',
-            ],
-          });
+        const sessions = await this.loginSessionRepository.find({
+          where: {
+            device_id: stationDevice.device_id,
+            created_at: Between(startDate, endDate),
+          },
+          select: [
+            'device_id',
+            'shift_id',
+            'user',
+            'no_of_cancelled',
+            'no_of_refund',
+            'total_amount',
+            'login_time',
+            'logout_time',
+            'cash_amount',
+            'upi_amount',
+            'no_of_tickets',
+            'no_of_tickets_cash',
+            'no_of_tickets_upi',
+          ],
+        });
 
-          sessions.forEach((session, index) => {
-            let shift = {
-              name: session.shift_id,
-              shift_id: session.shift_id,
-              device_id: stationDevice.device_name,
-              total_amount: session.total_amount,
-              cash_amount: session.cash_amount,
-              upi_amount: session.upi_amount,
-              no_of_tickets: session.no_of_tickets,
-              no_of_tickets_cash: session.no_of_tickets_cash,
-              no_of_tickets_upi: session.no_of_tickets_upi,
-              no_of_refund: session.no_of_refund,
-              no_of_cancelled: session.no_of_cancelled,
-              login_time: session.login_time,
-              logout_time: session.logout_time,
-            };
+        sessions.forEach((session, index) => {
+          let shift = {
+            name: session.shift_id,
+            shift_id: session.shift_id,
+            device_id: stationDevice.device_name,
+            total_amount: session.total_amount,
+            cash_amount: session.cash_amount,
+            upi_amount: session.upi_amount,
+            no_of_tickets: session.no_of_tickets,
+            no_of_tickets_cash: session.no_of_tickets_cash,
+            no_of_tickets_upi: session.no_of_tickets_upi,
+            no_of_refund: session.no_of_refund,
+            no_of_cancelled: session.no_of_cancelled,
+            login_time: session.login_time,
+            logout_time: session.logout_time,
+          };
 
-            stationObj.shifts.push(shift);
-          });
-        }
-      
+          stationObj.shifts.push(shift);
+        });
+      }
 
       stationsArr.push(stationObj);
-    
     }
 
     return stationsArr;
