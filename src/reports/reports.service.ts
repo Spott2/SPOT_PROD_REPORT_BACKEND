@@ -51,11 +51,19 @@ export class ReportsService {
       .addSelect('SUM(transaction.amount)', 'total_amount')
       .addSelect('SUM(transaction.no_of_tickets)', 'total_no_of_tickets')
       .addSelect(
-        "SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END)",
+        "SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END)",
         'total_cash',
       )
       .addSelect(
-        "SUM(CASE WHEN transaction.payment_mode IN ('online', 'credit_card', 'upi') THEN transaction.amount ELSE 0 END)",
+        `
+        SUM(CASE 
+            WHEN transaction.payment_mode ILIKE 'online' OR 
+                 transaction.payment_mode ILIKE 'credit_card' OR 
+                 transaction.payment_mode ILIKE 'upi' 
+            THEN transaction.amount 
+            ELSE 0 
+        END)
+        `,
         'total_online',
       )
       .where('transaction.created_at::date = :currentDate', { currentDate })
@@ -148,11 +156,19 @@ export class ReportsService {
           .createQueryBuilder('transaction')
           .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+            "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
             'total_cash',
           )
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+            `
+            SUM(CASE 
+                WHEN transaction.payment_mode ILIKE 'online' OR 
+                     transaction.payment_mode ILIKE 'credit_card' OR 
+                     transaction.payment_mode ILIKE 'upi' 
+                THEN transaction.amount 
+                ELSE 0 
+            END)
+            `,
             'total_online',
           )
           .addSelect(
@@ -203,23 +219,23 @@ export class ReportsService {
 
   async getDashboardAnalyticsForToday() {
     const currentDate = new Date();
-  
+
     // Adjust for Indian Standard Time (UTC+5:30)
     const istOffset = 5.5 * 60 * 60 * 1000; // Offset in milliseconds
     const istStartOfDay = new Date(currentDate.getTime() + istOffset);
     istStartOfDay.setUTCHours(0, 0, 0, 0); // Start of the day in IST
-  
+
     const istEndOfDay = new Date(istStartOfDay);
     istEndOfDay.setUTCHours(23, 59, 59, 999); // End of the day in IST
-  
+
     const formatDate = (date: Date) => {
       const day = date.getDate();
       const month = date.toLocaleString('default', { month: 'short' });
       return `${day}${day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th'} ${month}`;
     };
-  
+
     const stations = await this.stationRepository.find(); // Fetch all stations
-  
+
     const todayData = await Promise.all(
       stations.map(async (station) => {
         // Transaction query for total amount
@@ -228,11 +244,19 @@ export class ReportsService {
             .createQueryBuilder('transaction')
             .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
             .addSelect(
-              "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+              "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
               'total_cash',
             )
             .addSelect(
-              "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+              `
+              SUM(CASE 
+                  WHEN transaction.payment_mode ILIKE 'online' OR 
+                       transaction.payment_mode ILIKE 'credit_card' OR 
+                       transaction.payment_mode ILIKE 'upi' 
+                  THEN transaction.amount 
+                  ELSE 0 
+              END)
+              `,
               'total_online',
             )
             .addSelect(
@@ -247,7 +271,7 @@ export class ReportsService {
               stationId: station.id,
             })
             .getRawOne();
-  
+
         // Qr query for entry and exit counts
         const qrData = await this.qrRepository
           .createQueryBuilder('qr')
@@ -257,11 +281,14 @@ export class ReportsService {
             start: istStartOfDay.toISOString(),
             end: istEndOfDay.toISOString(),
           })
-          .andWhere('(qr.source_id = :stationId OR qr.destination_id = :stationId)', {
-            stationId: station.id,
-          })
+          .andWhere(
+            '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+            {
+              stationId: station.id,
+            },
+          )
           .getRawOne();
-  
+
         return {
           station_id: station.id,
           station_name: station.station_name,
@@ -277,10 +304,9 @@ export class ReportsService {
         };
       }),
     );
-  
+
     return todayData;
   }
-  
 
   // async getDashboardAnalyticsByStationDaily(
   //   fromDate?: Date | string,
@@ -604,43 +630,54 @@ export class ReportsService {
 
   async getDashboardAnalyticsMonthly() {
     let stations: any[] = [];
-  
+
     stations = await this.stationRepository.find({
       select: ['id', 'station_name'],
     });
-  
+
     const responseData: any[] = [];
-  
+
     const timezone = 'Asia/Kolkata';
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
-  
+
     for (let month = 0; month < 12; month++) {
       const startOfMonthDate = startOfMonth(new Date(currentYear, month));
       const endOfMonthDate = endOfMonth(new Date(currentYear, month));
-  
+
       const start = new Date(startOfMonthDate);
       const end = new Date(endOfMonthDate);
-  
+
       const { total_amount, total_no_of_tickets, total_cash, total_online } =
         await this.transactionRepository
           .createQueryBuilder('transaction')
           .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+            "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
             'total_cash',
           )
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+            `
+            SUM(CASE 
+                WHEN transaction.payment_mode ILIKE 'online' OR 
+                     transaction.payment_mode ILIKE 'credit_card' OR 
+                     transaction.payment_mode ILIKE 'upi' 
+                THEN transaction.amount 
+                ELSE 0 
+            END)
+            `,
             'total_online',
           )
-          .addSelect('COALESCE(SUM(transaction.no_of_tickets), 0)', 'total_no_of_tickets')
+          .addSelect(
+            'COALESCE(SUM(transaction.no_of_tickets), 0)',
+            'total_no_of_tickets',
+          )
           .where('transaction.created_at BETWEEN :start AND :end', {
             start: start.toISOString(),
             end: end.toISOString(),
           })
           .getRawOne();
-  
+
       // const qrData = await this.qrRepository
       //   .createQueryBuilder('qr')
       //   .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
@@ -650,22 +687,24 @@ export class ReportsService {
       //     end: end.toISOString(),
       //   })
       //   .getRawOne();
-  
+
       const formattedMonthYear = `${start
         .toLocaleString('default', { month: 'short' })
-        .toUpperCase()}-${String(currentYear).slice(2)}`; 
-  
+        .toUpperCase()}-${String(currentYear).slice(2)}`;
+
       responseData.push({
         month_year: formattedMonthYear,
         total_cash: total_cash ? Number(total_cash) : 0,
         total_online: total_online ? Number(total_online) : 0,
         total_amount: total_amount ? Number(total_amount) : 0,
-        total_no_of_tickets: total_no_of_tickets ? Number(total_no_of_tickets) : 0,
+        total_no_of_tickets: total_no_of_tickets
+          ? Number(total_no_of_tickets)
+          : 0,
         // total_entry_count: parseInt(qrData.total_entry_count, 10),
         // total_exit_count: parseInt(qrData.total_exit_count, 10),
       });
     }
-  
+
     return {
       status: 'success',
       status_code: 200,
@@ -673,8 +712,7 @@ export class ReportsService {
       data: responseData,
     };
   }
-  
-  
+
   async getDashboardAnalyticsByStationDaily(params: {
     fromDate?: Date | string;
     toDate?: Date | string;
@@ -720,11 +758,19 @@ export class ReportsService {
           .createQueryBuilder('transaction')
           .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+            "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
             'total_cash',
           )
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+            `
+            SUM(CASE 
+                WHEN transaction.payment_mode ILIKE 'online' OR 
+                     transaction.payment_mode ILIKE 'credit_card' OR 
+                     transaction.payment_mode ILIKE 'upi' 
+                THEN transaction.amount 
+                ELSE 0 
+            END)
+            `,
             'total_online',
           )
           .addSelect(
@@ -795,26 +841,30 @@ export class ReportsService {
     const today = new Date();
     const start = startOfMonth(today);
     const end = endOfMonth(today);
-  
+
     const IST_OFFSET = 5.5 * 60 * 60 * 1000;
     const startDate = new Date(start.getTime() + IST_OFFSET);
     const endDate = new Date(end.getTime() + IST_OFFSET);
-  
+
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
-  
+
     const allDates = eachDayOfInterval({
       start: startOfMonth(today),
       end: endOfMonth(today),
     });
-  
+
     const dailyRevenue = await this.transactionRepository
       .createQueryBuilder('transaction')
       .select([
         'DATE(transaction.created_at) AS date',
         'COALESCE(SUM(transaction.amount), 0) AS total_amount',
-        "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
-        "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0) AS total_online",
+        "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
+        `COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'credit_card' 
+          OR transaction.payment_mode ILIKE 'upi' 
+          OR transaction.payment_mode ILIKE 'online' 
+          THEN transaction.amount 
+          ELSE 0 END), 0) AS total_online`,
       ])
       .where('transaction.created_at BETWEEN :start AND :end', {
         start: startDate.toISOString(),
@@ -823,16 +873,16 @@ export class ReportsService {
       .groupBy('DATE(transaction.created_at)')
       .orderBy('DATE(transaction.created_at)', 'ASC')
       .getRawMany();
-  
+
     console.log('Daily Revenue Data:', dailyRevenue);
-  
+
     const formattedDailyRevenue = allDates.map((day) => {
       const dayString = format(day, 'yyyy-MM-dd');
-  
+
       const dayData = dailyRevenue.find(
         (revenue) => format(new Date(revenue.date), 'yyyy-MM-dd') === dayString,
       );
-  
+
       return {
         date: format(day, 'dd MMM yyyy'),
         total_cash: dayData ? Number(dayData.total_cash) : 0,
@@ -840,15 +890,14 @@ export class ReportsService {
         total_amount: dayData ? Number(dayData.total_amount) : 0,
       };
     });
-  
+
     return {
-      status: "success",
+      status: 'success',
       status_code: 200,
-      message: "Request was successful",
+      message: 'Request was successful',
       data: formattedDailyRevenue,
     };
   }
-  
 
   async findAllMonthlyPagination(queryParams: {
     fromDate?: Date | string;
@@ -884,7 +933,9 @@ export class ReportsService {
         );
       }
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -898,13 +949,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -962,7 +1013,9 @@ export class ReportsService {
         );
       }
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -976,13 +1029,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1037,7 +1090,9 @@ export class ReportsService {
         );
       }
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1051,13 +1106,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1116,7 +1171,9 @@ export class ReportsService {
         );
       }
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1130,13 +1187,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1192,7 +1249,9 @@ export class ReportsService {
         );
       }
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1206,13 +1265,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1271,7 +1330,9 @@ export class ReportsService {
         );
       }
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1285,13 +1346,13 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
@@ -1346,7 +1407,9 @@ export class ReportsService {
         );
       }
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1360,17 +1423,16 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
-
       const offset = (page - 1) * limit;
       queryBuilder.skip(offset).take(limit);
 
@@ -1423,7 +1485,9 @@ export class ReportsService {
         );
       }
       if (orderId) {
-        queryBuilder.andWhere('transaction.order_id = :orderId', { orderId });
+        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
+          orderId: `%${orderId}%`,
+        });
       } else {
         if (fromDate) {
           queryBuilder.andWhere('transaction.created_at >= :fromDate', {
@@ -1437,17 +1501,16 @@ export class ReportsService {
         }
 
         if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode = :paymentMode', {
-            paymentMode,
+          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
+            paymentMode: `%${paymentMode}%`,
           });
         }
         if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type = :transactionType', {
-            transactionType,
+          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
+            transactionType: `%${transactionType}%`,
           });
         }
       }
-
       const [transactions, total] = await queryBuilder.getManyAndCount();
 
       return {
