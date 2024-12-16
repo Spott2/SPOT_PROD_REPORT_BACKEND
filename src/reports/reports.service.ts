@@ -439,11 +439,19 @@ export class ReportsService {
           .createQueryBuilder('transaction')
           .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode = 'cash' THEN transaction.amount ELSE 0 END), 0)",
+            "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
             'total_cash',
           )
           .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode IN ('credit_card', 'upi') THEN transaction.amount ELSE 0 END), 0)",
+            `
+            SUM(CASE 
+                WHEN transaction.payment_mode ILIKE 'online' OR 
+                     transaction.payment_mode ILIKE 'credit_card' OR 
+                     transaction.payment_mode ILIKE 'upi' 
+                THEN transaction.amount 
+                ELSE 0 
+            END)
+            `,
             'total_online',
           )
           .addSelect(
