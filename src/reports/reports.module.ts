@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { ReportsController } from './reports.controller';
-import { TransactionQr, Qr, Station, LoginSession, Equipment} from '@spot-demo/shared-entities';
+import { TransactionQr, Qr, Station, LoginSession, Equipment, Penalty} from '@spot-demo/shared-entities';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 
 @Module({
-  imports: [TypeOrmModule.forFeature([TransactionQr, Qr, Station, LoginSession, Equipment])],
+  imports: [TypeOrmModule.forFeature([TransactionQr, Qr, Station, LoginSession, Equipment, Penalty])],
   controllers: [ReportsController],
   providers: [ReportsService],
 })

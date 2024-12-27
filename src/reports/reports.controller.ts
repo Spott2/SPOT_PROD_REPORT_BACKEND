@@ -52,6 +52,40 @@ export class ReportsController {
     });
   }
 
+  @Post('penalties-pagination')
+  getAllPenaltiesPagination(
+    @Body()
+    filter: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      stationId: string;
+      page: number;
+      limit: number;
+    },
+  ) {
+    const { fromDate, toDate, stationId, page, limit } = filter;
+    return this.reportsService.getAllPenaltiesPagination(
+      fromDate,
+      toDate,
+      stationId,
+      page,
+      limit,
+    );
+  }
+
+  @Post('penalties')
+  getAllPenalties(
+    @Body()
+    filter: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      stationId: string;
+    },
+  ) {
+    const { fromDate, toDate, stationId } = filter;
+    return this.reportsService.getAllPenalties(fromDate, toDate, stationId);
+  }
+
   @Get('get-dashboard-analytics-all-station')
   getDashboardAnalyticsAllStation() {
     return this.reportsService.getDashboardAnalyticsAllStation();
@@ -62,7 +96,6 @@ export class ReportsController {
     return this.reportsService.getDashboardAnalyticsMonthly();
   }
 
-  
   @Post()
   create(@Body() createReportDto: CreateReportDto) {
     return this.reportsService.create(createReportDto);
