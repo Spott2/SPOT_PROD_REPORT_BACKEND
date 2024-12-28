@@ -3,7 +3,7 @@ import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { Repository, Between } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Equipment, Station, TransactionQr } from '@spot-demo/shared-entities';
+import { Equipment, Penalty, Station, TransactionQr } from '@spot-demo/shared-entities';
 import { Qr, LoginSession } from '@spot-demo/shared-entities';
 import axios from 'axios';
 import { LoginSessionInput } from './commonTypes';
@@ -32,6 +32,9 @@ export class ReportsService {
 
     @InjectRepository(Equipment)
     private equipmentRepository: Repository<Equipment>,
+
+    @InjectRepository(Penalty)
+    private penaltyRepository: Repository<Penalty>,
   ) {}
   create(createReportDto: CreateReportDto) {
     return 'This action adds a new report';
@@ -567,6 +570,67 @@ export class ReportsService {
       data: formattedDailyRevenue,
     };
   }
+
+  async getAllPenaltiesPagination(
+    fromDate?: Date | string,
+    toDate?: Date | string,
+    stationId?: string,
+    page?: number,
+    limit?: number,
+  ) {
+    const query = this.penaltyRepository.createQueryBuilder('penalty');
+
+    if (fromDate) {
+      query.andWhere('penalty.created_at >= :fromDate', { fromDate });
+    }
+
+    if (toDate) {
+      query.andWhere('penalty.created_at <= :toDate', { toDate });
+    }
+
+    if (stationId) {
+      query.andWhere('penalty.station_id = :stationId', { stationId });
+    }
+
+    const offset = (page - 1) * limit;
+    query.skip(offset).take(limit);
+
+    const [penalties, total] = await query.getManyAndCount();
+    return {
+      data: penalties,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getAllPenalties(
+    fromDate?: Date | string,
+    toDate?: Date | string,
+    stationId?: string,
+  ) {
+    const query = this.penaltyRepository.createQueryBuilder('penalty');
+
+    if (fromDate) {
+      query.andWhere('penalty.created_at >= :fromDate', { fromDate });
+    }
+
+    if (toDate) {
+      query.andWhere('penalty.created_at <= :toDate', { toDate });
+    }
+
+    if (stationId) {
+      query.andWhere('penalty.station_id = :stationId', { stationId });
+    }
+
+    const penalties = await query.getMany();
+    return {
+      data: penalties,
+      total: penalties.length,
+    };
+  }
+
 
   async findAllMonthlyPagination(queryParams: {
     fromDate?: Date | string;

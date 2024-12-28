@@ -67,6 +67,40 @@ export class ReportsController {
     return this.reportsService.create(createReportDto);
   }
 
+  @Post('penalties-pagination')
+  getAllPenaltiesPagination(
+    @Body()
+    filter: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      stationId: string;
+      page: number;
+      limit: number;
+    },
+  ) {
+    const { fromDate, toDate, stationId, page, limit } = filter;
+    return this.reportsService.getAllPenaltiesPagination(
+      fromDate,
+      toDate,
+      stationId,
+      page,
+      limit,
+    );
+  }
+
+  @Post('penalties')
+  getAllPenalties(
+    @Body()
+    filter: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+      stationId: string;
+    },
+  ) {
+    const { fromDate, toDate, stationId } = filter;
+    return this.reportsService.getAllPenalties(fromDate, toDate, stationId);
+  }
+
   @Post('find-monthly-pagination')
   findAllMonthlyPagination(
     @Body()
