@@ -2466,7 +2466,7 @@ export class ReportsService {
     return stationsArr;
   }
 
-  async shipReport(payload: LoginSessionInput) {
+  async shipReport(payload: any) {
     const {
       station,
       user,
@@ -2479,6 +2479,8 @@ export class ReportsService {
       no_of_tickets,
       no_of_tickets_cash,
       no_of_tickets_upi,
+      fine_amount,
+      fine_count,
       shift_id,
       total_amount,
       total_cancelled_amount,
@@ -2497,6 +2499,8 @@ export class ReportsService {
       no_of_tickets,
       no_of_tickets_cash,
       no_of_tickets_upi,
+      fine_amount,
+      fine_count,
       shift_id,
       total_amount,
       total_cancelled_amount,
@@ -2544,6 +2548,8 @@ export class ReportsService {
           'no_of_tickets_upi',
           'no_of_refund',
           'total_refund_amount',
+          'fine_amount',
+          'fine_count',
           'no_of_cancelled',
           'total_cancelled_amount',
           'login_time',

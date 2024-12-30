@@ -2,7 +2,7 @@ import { Station, User } from "@spot-demo/shared-entities";
 
 export type LoginSessionInput = {
     device_id?: string;
-    station:  number;
+    station?:  number;
     shift_id?: string;
     total_amount?: number;
     cash_amount?: number;
@@ -10,6 +10,8 @@ export type LoginSessionInput = {
     no_of_tickets?: number;
     no_of_tickets_cash?: number;
     no_of_tickets_upi?: number;
+    fine_amount?:number,
+    fine_count?:number,
     no_of_refund?: number;
     total_refund_amount?: number;
     no_of_cancelled?: number;
