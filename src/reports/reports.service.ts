@@ -867,7 +867,7 @@ export class ReportsService {
     }
 
     const offset = (page - 1) * limit;
-    query.skip(offset).take(limit);
+    query.skip(offset).take(limit).orderBy('penalty.id', 'DESC');;
 
     const [penalties, total] = await query.getManyAndCount();
     return {
