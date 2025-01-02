@@ -2085,7 +2085,7 @@ export class ReportsService {
           'CAST(session.cash_amount AS INTEGER) as cash_amount',
           'CAST(session.upi_amount as INTEGER) as upi_amount',
           'CAST(session.no_of_tickets AS INTEGER) as no_of_tickets',
-          'CAST(session.device_id AS INTEGER) as device_id',
+          'CAST(session.device_id AS VARCHAR) as device_id',
           'CAST(session.no_of_tickets_cash AS INTEGER) as no_of_tickets_cash',
           'CAST(session.no_of_tickets_upi AS INTEGER) as no_of_tickets_upi',
           'CAST(session.no_of_refund AS INTEGER) as no_of_refund',
