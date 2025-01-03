@@ -1637,13 +1637,18 @@ export class ReportsService {
   //   }
   // }
 
-  async Ridership(fromDate: Date, toDate: Date) {
+  async Ridership(fromDate: Date, toDate: Date, stationId: number) {
     try {
-      const stations = await this.stationRepository.find({
-        where: { is_active: true },
-        order: { id: 'ASC' },
-      });
-
+      const stations = stationId 
+        ? await this.stationRepository.find({
+            where: { is_active: true, id: stationId },  
+            order: { id: 'ASC' },
+          })
+        : await this.stationRepository.find({
+            where: { is_active: true },
+            order: { id: 'ASC' },
+          });
+  
       const stationData = await Promise.all(
         stations.map(async (station) => {
           const entryCount = await this.qrRepository
@@ -1655,7 +1660,7 @@ export class ReportsService {
             })
             .select('SUM(qr.entry_count)', 'totalEntryCount')
             .getRawOne();
-
+  
           const exitCount = await this.qrRepository
             .createQueryBuilder('qr')
             .where('qr.destination_id = :destinationId', {
@@ -1667,7 +1672,7 @@ export class ReportsService {
             })
             .select('SUM(qr.exit_count)', 'totalExitCount')
             .getRawOne();
-
+  
           return {
             ...station,
             entryCount: entryCount.totalEntryCount || 0,
@@ -1675,7 +1680,7 @@ export class ReportsService {
           };
         }),
       );
-
+  
       return {
         success: true,
         data: stationData,
@@ -1688,6 +1693,7 @@ export class ReportsService {
       };
     }
   }
+  
 
   async getCollectionReportByDate(date, station_id) {
     const deviceTypes = [

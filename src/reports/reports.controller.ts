@@ -298,13 +298,14 @@ export class ReportsController {
     body: {
       fromDate: Date | string;
       toDate: Date | string;
+      stationId: number
     },
   ) {
     try {
       const fromDate = body.fromDate ? new Date(body.fromDate) : null;
       const toDate = body.toDate ? new Date(body.toDate) : null;
 
-      const result = await this.reportsService.Ridership(fromDate, toDate);
+      const result = await this.reportsService.Ridership(fromDate, toDate, body.stationId);
       return result;
     } catch (error) {
       throw new HttpException(
