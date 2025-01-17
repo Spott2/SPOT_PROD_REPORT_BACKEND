@@ -15,7 +15,7 @@ import {
   UserGroup,
   LoginSession,
   Penalty
-} from '@spot-demo/shared-entities';
+} from '@spot-demo-v2/shared-entities';
 
 @Module({
   imports: [

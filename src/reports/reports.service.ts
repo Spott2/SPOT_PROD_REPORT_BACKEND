@@ -3,8 +3,8 @@ import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { Repository, Between } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Equipment, Penalty, Station, TransactionQr } from '@spot-demo/shared-entities';
-import { Qr, LoginSession } from '@spot-demo/shared-entities';
+import { Equipment, Penalty, Station, TransactionQr } from '@spot-demo-v2/shared-entities';
+import { Qr, LoginSession } from '@spot-demo-v2/shared-entities';
 import axios from 'axios';
 import { LoginSessionInput } from './commonTypes';
 import {
