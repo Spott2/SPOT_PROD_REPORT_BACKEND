@@ -3,7 +3,12 @@ import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { Repository, Between } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Equipment, Penalty, Station, TransactionQr } from '@spot-demo-v2/shared-entities';
+import {
+  Equipment,
+  Penalty,
+  Station,
+  TransactionQr,
+} from '@spot-demo-v2/shared-entities';
 import { Qr, LoginSession } from '@spot-demo-v2/shared-entities';
 import axios from 'axios';
 import { LoginSessionInput } from './commonTypes';
@@ -68,7 +73,16 @@ export class ReportsService {
         'total_online',
       )
 
-      .where('transaction.created_at::date = :currentDate', { currentDate })
+      // .where('transaction.created_at::date = :currentDate', { currentDate })
+      .where(
+        `(
+          (transaction.extended_time IS NOT NULL AND transaction.extended_time::date = :currentDate)
+          OR
+          (transaction.extended_time IS NULL AND transaction.created_at::date = :currentDate)
+        )`,
+        { currentDate },
+      )
+
       .groupBy('station.id')
       .getRawMany();
 
@@ -77,7 +91,16 @@ export class ReportsService {
       .select('qr.source_id', 'station_id')
       .addSelect('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
       .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-      .where('qr.qr_date_time::date = :currentDate', { currentDate })
+      // .where('qr.qr_date_time::date = :currentDate', { currentDate })
+      .where(
+        `(
+          (qr.extended_time IS NOT NULL AND qr.extended_time::date = :currentDate)
+          OR
+          (qr.extended_time IS NULL AND qr.qr_date_time::date = :currentDate)
+        )`,
+        { currentDate },
+      )
+
       .groupBy('qr.source_id')
       .getRawMany();
 
@@ -178,10 +201,23 @@ export class ReportsService {
             'COALESCE(SUM(transaction.no_of_tickets), 0)',
             'total_no_of_tickets',
           )
-          .where('transaction.created_at BETWEEN :day AND :nextDay', {
-            day: day.toISOString(),
-            nextDay: nextDay.toISOString(),
-          })
+          // .where('transaction.created_at BETWEEN :day AND :nextDay', {
+          //   day: day.toISOString(),
+          //   nextDay: nextDay.toISOString(),
+          // })
+
+          .where(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :day AND :nextDay)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :day AND :nextDay)
+            )`,
+            {
+              day: day.toISOString(),
+              nextDay: nextDay.toISOString(),
+            },
+          )
+
           .andWhere('transaction.station = :stationId', { stationId })
           .getRawOne();
 
@@ -190,10 +226,23 @@ export class ReportsService {
         .createQueryBuilder('qr')
         .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
         .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-        .where('qr.qr_date_time BETWEEN :day AND :nextDay', {
-          day: day.toISOString(),
-          nextDay: nextDay.toISOString(),
-        })
+        // .where('qr.qr_date_time BETWEEN :day AND :nextDay', {
+        //   day: day.toISOString(),
+        //   nextDay: nextDay.toISOString(),
+        // })
+
+        .where(
+          `(
+            (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :day AND :nextDay)
+            OR
+            (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :day AND :nextDay)
+          )`,
+          {
+            day: day.toISOString(),
+            nextDay: nextDay.toISOString(),
+          },
+        )
+
         .andWhere('(qr.source_id = :stationId OR qr.source_id = :stationId)', {
           stationId,
         })
@@ -266,10 +315,23 @@ export class ReportsService {
               'COALESCE(SUM(transaction.no_of_tickets), 0)',
               'total_no_of_tickets',
             )
-            .where('transaction.created_at BETWEEN :start AND :end', {
-              start: istStartOfDay.toISOString(),
-              end: istEndOfDay.toISOString(),
-            })
+            // .where('transaction.created_at BETWEEN :start AND :end', {
+            //   start: istStartOfDay.toISOString(),
+            //   end: istEndOfDay.toISOString(),
+            // })
+
+            .where(
+              `(
+                (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
+                OR
+                (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
+              )`,
+              {
+                start: istStartOfDay.toISOString(),
+                end: istEndOfDay.toISOString(),
+              },
+            )
+
             .andWhere('transaction.station = :stationId', {
               stationId: station.id,
             })
@@ -280,10 +342,23 @@ export class ReportsService {
           .createQueryBuilder('qr')
           .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
           .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-          .where('qr.qr_date_time BETWEEN :start AND :end', {
-            start: istStartOfDay.toISOString(),
-            end: istEndOfDay.toISOString(),
-          })
+          // .where('qr.qr_date_time BETWEEN :start AND :end', {
+          //   start: istStartOfDay.toISOString(),
+          //   end: istEndOfDay.toISOString(),
+          // })
+
+          .where(
+            `(
+              (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :start AND :end)
+              OR
+              (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :start AND :end)
+            )`,
+            {
+              start: istStartOfDay.toISOString(),
+              end: istEndOfDay.toISOString(),
+            },
+          )
+
           .andWhere(
             '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
             {
@@ -355,10 +430,20 @@ export class ReportsService {
             'COALESCE(SUM(transaction.no_of_tickets), 0)',
             'total_no_of_tickets',
           )
-          .where('transaction.created_at BETWEEN :start AND :end', {
-            start: start.toISOString(),
-            end: end.toISOString(),
-          })
+          // .where('transaction.created_at BETWEEN :start AND :end', {
+          //   start: start.toISOString(),
+          //   end: end.toISOString(),
+          // })
+
+          .where(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
+            )`,
+            { start: start.toISOString(), end: end.toISOString() },
+          )
+
           .getRawOne();
 
       // const qrData = await this.qrRepository
@@ -461,10 +546,23 @@ export class ReportsService {
             'COALESCE(SUM(transaction.no_of_tickets), 0)',
             'total_no_of_tickets',
           )
-          .where('transaction.created_at BETWEEN :start AND :end', {
-            start: start.toISOString(),
-            end: end.toISOString(),
-          })
+          // .where('transaction.created_at BETWEEN :start AND :end', {
+          //   start: start.toISOString(),
+          //   end: end.toISOString(),
+          // })
+
+          .where(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
+            )`,
+            {
+              start: start.toISOString(),
+              end: end.toISOString(),
+            },
+          )
+
           .andWhere('transaction.station = :stationId', {
             stationId: currentStation.id,
           })
@@ -480,10 +578,23 @@ export class ReportsService {
           'COALESCE(SUM(CASE WHEN qr.destination_id = :stationId THEN qr.exit_count ELSE 0 END), 0)',
           'total_exit_count',
         )
-        .where('qr.qr_date_time BETWEEN :start AND :end', {
-          start: start.toISOString(),
-          end: end.toISOString(),
-        })
+        // .where('qr.qr_date_time BETWEEN :start AND :end', {
+        //   start: start.toISOString(),
+        //   end: end.toISOString(),
+        // })
+
+        .where(
+          `(
+            (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :start AND :end)
+            OR
+            (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :start AND :end)
+          )`,
+          {
+            start: start.toISOString(),
+            end: end.toISOString(),
+          },
+        )
+
         .andWhere(
           '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
           { stationId: currentStation.id },
@@ -524,27 +635,67 @@ export class ReportsService {
       end: endOfMonth(today),
     });
 
+    // const dailyRevenue = await this.transactionRepository
+    //   .createQueryBuilder('transaction')
+    //   .select([
+    //     'DATE(transaction.created_at) AS date',
+    //     'COALESCE(SUM(transaction.amount), 0) AS total_amount',
+    //     "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
+    //     `COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'credit_card'
+    //       OR transaction.payment_mode ILIKE 'upi'
+    //       OR transaction.payment_mode ILIKE 'online'
+    //       THEN transaction.amount
+    //       ELSE 0 END), 0) AS total_online`,
+    //   ])
+    //   // .where('transaction.created_at BETWEEN :start AND :end', {
+    //   //   start: startDate.toISOString(),
+    //   //   end: endDate.toISOString(),
+    //   // })
+
+    //   .where(
+    //     `(
+    //       (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
+    //       OR
+    //       (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
+    //     )`,
+    //     { start: startDate.toISOString(), end: endDate.toISOString() },
+    //   )
+
+    //   .groupBy('DATE(transaction.created_at)')
+    //   .orderBy('DATE(transaction.created_at)', 'ASC')
+    //   .getRawMany();
+
     const dailyRevenue = await this.transactionRepository
       .createQueryBuilder('transaction')
       .select([
-        'DATE(transaction.created_at) AS date',
+        `COALESCE(
+      DATE(transaction.extended_time), 
+      DATE(transaction.created_at)
+    ) AS date`,
         'COALESCE(SUM(transaction.amount), 0) AS total_amount',
         "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
         `COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'credit_card' 
-          OR transaction.payment_mode ILIKE 'upi' 
-          OR transaction.payment_mode ILIKE 'online' 
-          THEN transaction.amount 
-          ELSE 0 END), 0) AS total_online`,
+      OR transaction.payment_mode ILIKE 'upi' 
+      OR transaction.payment_mode ILIKE 'online' 
+      THEN transaction.amount 
+      ELSE 0 END), 0) AS total_online`,
       ])
-      .where('transaction.created_at BETWEEN :start AND :end', {
-        start: startDate.toISOString(),
-        end: endDate.toISOString(),
-      })
-      
-      .groupBy('DATE(transaction.created_at)')
-      .orderBy('DATE(transaction.created_at)', 'ASC')
+      .where(
+        `(
+      (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
+      OR
+      (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
+    )`,
+        { start: startDate.toISOString(), end: endDate.toISOString() },
+      )
+      .groupBy(
+        `COALESCE(DATE(transaction.extended_time), DATE(transaction.created_at))`,
+      )
+      .orderBy(
+        `COALESCE(DATE(transaction.extended_time), DATE(transaction.created_at))`,
+        'ASC',
+      )
       .getRawMany();
-
 
     console.log('Daily Revenue Data:', dailyRevenue);
 
@@ -631,7 +782,6 @@ export class ReportsService {
     };
   }
 
-
   async findAllMonthlyPagination(queryParams: {
     fromDate?: Date | string;
     toDate?: Date | string;
@@ -662,15 +812,37 @@ export class ReportsService {
           orderId: `%${orderId}%`,
         });
       } else {
+        // if (fromDate) {
+        //   queryBuilder.andWhere('transaction.created_at >= :fromDate', {
+        //     fromDate,
+        //   });
+        // }
+        // if (toDate) {
+        //   queryBuilder.andWhere('transaction.created_at <= :toDate', {
+        //     toDate,
+        //   });
+        // }
+
         if (fromDate) {
-          queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-            fromDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
+            )`,
+            { fromDate },
+          );
         }
+
         if (toDate) {
-          queryBuilder.andWhere('transaction.created_at <= :toDate', {
-            toDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
+            )`,
+            { toDate },
+          );
         }
 
         if (paymentMode) {
@@ -729,15 +901,37 @@ export class ReportsService {
           orderId: `%${orderId}%`,
         });
       } else {
+        // if (fromDate) {
+        //   queryBuilder.andWhere('transaction.created_at >= :fromDate', {
+        //     fromDate,
+        //   });
+        // }
+        // if (toDate) {
+        //   queryBuilder.andWhere('transaction.created_at <= :toDate', {
+        //     toDate,
+        //   });
+        // }
+
         if (fromDate) {
-          queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-            fromDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
+            )`,
+            { fromDate },
+          );
         }
+
         if (toDate) {
-          queryBuilder.andWhere('transaction.created_at <= :toDate', {
-            toDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
+            )`,
+            { toDate },
+          );
         }
 
         if (paymentMode) {
@@ -787,6 +981,7 @@ export class ReportsService {
         page,
         limit,
       } = queryParams;
+      console.log('a', fromDate);
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
@@ -798,15 +993,36 @@ export class ReportsService {
           orderId: `%${orderId}%`,
         });
       } else {
+        // if (fromDate) {
+        //   queryBuilder.andWhere('transaction.created_at >= :fromDate' , {
+        //     fromDate,
+        //   });
+        // }
+        // if (toDate) {
+        //   queryBuilder.andWhere('transaction.created_at <= :toDate', {
+        //     toDate,
+        //   });
+        // }
         if (fromDate) {
-          queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-            fromDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
+            )`,
+            { fromDate },
+          );
         }
+
         if (toDate) {
-          queryBuilder.andWhere('transaction.created_at <= :toDate', {
-            toDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
+            )`,
+            { toDate },
+          );
         }
 
         if (paymentMode) {
@@ -866,15 +1082,36 @@ export class ReportsService {
           orderId: `%${orderId}%`,
         });
       } else {
+        // if (fromDate) {
+        //   queryBuilder.andWhere('transaction.created_at >= :fromDate', {
+        //     fromDate,
+        //   });
+        // }
+        // if (toDate) {
+        //   queryBuilder.andWhere('transaction.created_at <= :toDate', {
+        //     toDate,
+        //   });
+        // }
         if (fromDate) {
-          queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-            fromDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
+            )`,
+            { fromDate },
+          );
         }
+
         if (toDate) {
-          queryBuilder.andWhere('transaction.created_at <= :toDate', {
-            toDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
+            )`,
+            { toDate },
+          );
         }
 
         if (paymentMode) {
@@ -1073,16 +1310,39 @@ export class ReportsService {
           orderId: `%${orderId}%`,
         });
       } else {
+        // if (fromDate) {
+        //   queryBuilder.andWhere('transaction.created_at >= :fromDate', {
+        //     fromDate,
+        //   });
+        // }
+        // if (toDate) {
+        //   queryBuilder.andWhere('transaction.created_at <= :toDate', {
+        //     toDate,
+        //   });
+        // }
+
         if (fromDate) {
-          queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-            fromDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
+            )`,
+            { fromDate },
+          );
         }
+        
         if (toDate) {
-          queryBuilder.andWhere('transaction.created_at <= :toDate', {
-            toDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
+            )`,
+            { toDate },
+          );
         }
+        
 
         if (paymentMode) {
           queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
@@ -1139,16 +1399,39 @@ export class ReportsService {
           orderId: `%${orderId}%`,
         });
       } else {
+        // if (fromDate) {
+        //   queryBuilder.andWhere('transaction.created_at >= :fromDate', {
+        //     fromDate,
+        //   });
+        // }
+        // if (toDate) {
+        //   queryBuilder.andWhere('transaction.created_at <= :toDate', {
+        //     toDate,
+        //   });
+        // }
+
         if (fromDate) {
-          queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-            fromDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
+            )`,
+            { fromDate },
+          );
         }
+        
         if (toDate) {
-          queryBuilder.andWhere('transaction.created_at <= :toDate', {
-            toDate,
-          });
+          queryBuilder.andWhere(
+            `(
+              (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
+              OR
+              (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
+            )`,
+            { toDate },
+          );
         }
+        
 
         if (paymentMode) {
           queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
@@ -1227,13 +1510,41 @@ export class ReportsService {
 
       const stationData = await Promise.all(
         stations.map(async (station) => {
+          // const entryCount = await this.qrRepository
+          //   .createQueryBuilder('qr')
+          //   .where('qr.source_id = :sourceId', { sourceId: station.id })
+          //   .andWhere('qr.created_at BETWEEN :fromDate AND :toDate', {
+          //     fromDate,
+          //     toDate,
+          //   })
+
+          //   .select('SUM(qr.entry_count)', 'totalEntryCount')
+          //   .getRawOne();
+
+          // const exitCount = await this.qrRepository
+          //   .createQueryBuilder('qr')
+          //   .where('qr.destination_id = :destinationId', {
+          //     destinationId: station.id,
+          //   })
+          //   .andWhere('qr.created_at BETWEEN :fromDate AND :toDate', {
+          //     fromDate,
+          //     toDate,
+          //   })
+
+          //   .select('SUM(qr.exit_count)', 'totalExitCount')
+          //   .getRawOne();
+
           const entryCount = await this.qrRepository
             .createQueryBuilder('qr')
             .where('qr.source_id = :sourceId', { sourceId: station.id })
-            .andWhere('qr.created_at BETWEEN :fromDate AND :toDate', {
-              fromDate,
-              toDate,
-            })
+            .andWhere(
+              `(
+      (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
+      OR
+      (qr.extended_time IS NULL AND qr.created_at BETWEEN :fromDate AND :toDate)
+    )`,
+              { fromDate, toDate },
+            )
             .select('SUM(qr.entry_count)', 'totalEntryCount')
             .getRawOne();
 
@@ -1242,10 +1553,14 @@ export class ReportsService {
             .where('qr.destination_id = :destinationId', {
               destinationId: station.id,
             })
-            .andWhere('qr.created_at BETWEEN :fromDate AND :toDate', {
-              fromDate,
-              toDate,
-            })
+            .andWhere(
+              `(
+      (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
+      OR
+      (qr.extended_time IS NULL AND qr.created_at BETWEEN :fromDate AND :toDate)
+    )`,
+              { fromDate, toDate },
+            )
             .select('SUM(qr.exit_count)', 'totalExitCount')
             .getRawOne();
 
@@ -1511,7 +1826,7 @@ export class ReportsService {
         .where('session.station_id = :station_id', {
           station_id: station.id,
         })
-        .andWhere('session.created_at BETWEEN :start_date AND :end_date', {
+        .andWhere('session.login_time BETWEEN :start_date AND :end_date', {
           start_date: startDate,
           end_date: endDate,
         })
@@ -1531,7 +1846,7 @@ export class ReportsService {
           'session.total_cancelled_amount as cancelled_amount',
           'session.total_amount as total_amount',
         ])
-        .orderBy('session.created_at', 'ASC')
+        .orderBy('session.login_time', 'ASC')
         .getRawMany();
 
       stationObj.device?.push(...shift);
@@ -1650,7 +1965,7 @@ export class ReportsService {
         .where('session.station_id = :station_id', {
           station_id: station.id,
         })
-        .andWhere('session.created_at BETWEEN :start_date AND :end_date', {
+        .andWhere('session.login_time BETWEEN :start_date AND :end_date', {
           start_date: startDate,
           end_date: endDate,
         })
@@ -1671,7 +1986,7 @@ export class ReportsService {
           'CAST(session.total_cancelled_amount AS INTEGER) as cancelled_amount',
           'CAST(session.total_amount AS INTEGER) as total_amount',
         ])
-        .orderBy('session.created_at', 'ASC')
+        .orderBy('session.login_time', 'ASC')
         .getRawMany();
 
       shifts.forEach((shift) => {
@@ -1973,7 +2288,7 @@ export class ReportsService {
         const sessions = await this.loginSessionRepository.find({
           where: {
             device_id: stationDevice.device_id,
-            created_at: Between(startDate, endDate),
+            login_time: Between(startDate, endDate),
           },
           select: [
             'device_id',
