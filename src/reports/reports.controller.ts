@@ -112,6 +112,7 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
+      stationId?: number;
     },
   ) {
     return this.reportsService.findAllMonthlyPagination({
@@ -122,6 +123,8 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
+      stationId: body.stationId,
+
     });
   }
 
@@ -134,6 +137,8 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
+      stationId?: number;
+
     },
   ) {
     return this.reportsService.findAllMonthly({
@@ -142,6 +147,8 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
+      stationId: body.stationId,
+
     });
   }
 
@@ -156,6 +163,8 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
+      stationId?: number;
+
     },
   ) {
     return this.reportsService.findAllDailyPagination({
@@ -166,6 +175,8 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
+      stationId: body.stationId,
+
     });
   }
 
@@ -178,6 +189,8 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
+      stationId?: number;
+
     },
   ) {
     return this.reportsService.findAllDaily({
@@ -186,6 +199,8 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
+      stationId: body.stationId,
+
     });
   }
 
@@ -200,6 +215,8 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
+      stationId?: number;
+
     },
   ) {
     return this.reportsService.findAllHourlyPagination({
@@ -210,6 +227,8 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
+      stationId: body.stationId,
+
     });
   }
 
@@ -222,6 +241,8 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
+      stationId?: number;
+
     },
   ) {
     return this.reportsService.findAllHourly({
@@ -230,6 +251,8 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
+      stationId: body.stationId,
+
     });
   }
   @Post('find-all-pagination')
@@ -243,6 +266,8 @@ export class ReportsController {
       page?: number;
       limit?: number;
       paymentMode?: string;
+      stationId?: number;
+
     },
   ) {
     return this.reportsService.findAllPagination({
@@ -253,6 +278,8 @@ export class ReportsController {
       page: body.page,
       limit: body.limit,
       paymentMode: body.paymentMode,
+      stationId: body.stationId,
+
     });
   }
 
@@ -265,6 +292,8 @@ export class ReportsController {
       orderId?: string;
       transactionType?: string;
       paymentMode?: string;
+      stationId?: number;
+
     },
   ) {
     return this.reportsService.findAll({
@@ -273,6 +302,8 @@ export class ReportsController {
       orderId: body.orderId,
       transactionType: body.transactionType,
       paymentMode: body.paymentMode,
+      stationId: body.stationId,
+
     });
   }
 
@@ -282,13 +313,14 @@ export class ReportsController {
     body: {
       fromDate: Date | string;
       toDate: Date | string;
+      stationId: number
     },
   ) {
     try {
       const fromDate = body.fromDate ? new Date(body.fromDate) : null;
       const toDate = body.toDate ? new Date(body.toDate) : null;
 
-      const result = await this.reportsService.Ridership(fromDate, toDate);
+      const result = await this.reportsService.Ridership(fromDate, toDate, body.stationId);
       return result;
     } catch (error) {
       throw new HttpException(

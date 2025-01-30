@@ -790,6 +790,7 @@ export class ReportsService {
     transactionType?: string;
     page?: number;
     limit?: number;
+    stationId?: number;
   }) {
     try {
       const {
@@ -800,6 +801,7 @@ export class ReportsService {
         transactionType,
         page,
         limit,
+        stationId,
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -807,6 +809,13 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+      if (stationId) {
+        queryBuilder.andWhere(
+          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+          { stationId },
+        );
+      }
+
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
           orderId: `%${orderId}%`,
@@ -886,16 +895,30 @@ export class ReportsService {
     orderId?: string;
     paymentMode?: string;
     transactionType?: string;
+    stationId?: number;
   }) {
     try {
-      const { fromDate, toDate, orderId, paymentMode, transactionType } =
-        queryParams;
+      const {
+        fromDate,
+        toDate,
+        orderId,
+        paymentMode,
+        transactionType,
+        stationId,
+      } = queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+      if (stationId) {
+        queryBuilder.andWhere(
+          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+          { stationId },
+        );
+      }
+
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
           orderId: `%${orderId}%`,
@@ -970,6 +993,7 @@ export class ReportsService {
     transactionType?: string;
     page?: number;
     limit?: number;
+    stationId?: number;
   }) {
     try {
       const {
@@ -980,6 +1004,7 @@ export class ReportsService {
         transactionType,
         page,
         limit,
+        stationId,
       } = queryParams;
       console.log('a', fromDate);
 
@@ -988,6 +1013,13 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+      if (stationId) {
+        queryBuilder.andWhere(
+          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+          { stationId },
+        );
+      }
+
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
           orderId: `%${orderId}%`,
@@ -1067,16 +1099,29 @@ export class ReportsService {
     orderId?: string;
     paymentMode?: string;
     transactionType?: string;
+    stationId?: number;
   }) {
     try {
-      const { fromDate, toDate, orderId, paymentMode, transactionType } =
-        queryParams;
+      const {
+        fromDate,
+        toDate,
+        orderId,
+        paymentMode,
+        transactionType,
+        stationId,
+      } = queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+      if (stationId) {
+        queryBuilder.andWhere(
+          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+          { stationId },
+        );
+      }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
           orderId: `%${orderId}%`,
@@ -1151,6 +1196,7 @@ export class ReportsService {
     transactionType?: string;
     page?: number;
     limit?: number;
+    stationId?: number;
   }) {
     try {
       const {
@@ -1161,6 +1207,7 @@ export class ReportsService {
         transactionType,
         page,
         limit,
+        stationId,
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -1168,6 +1215,12 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+      if (stationId) {
+        queryBuilder.andWhere(
+          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+          { stationId },
+        );
+      }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
           orderId: `%${orderId}%`,
@@ -1226,16 +1279,30 @@ export class ReportsService {
     orderId?: string;
     paymentMode?: string;
     transactionType?: string;
+    stationId?: number;
   }) {
     try {
-      const { fromDate, toDate, orderId, paymentMode, transactionType } =
-        queryParams;
+      const {
+        fromDate,
+        toDate,
+        orderId,
+        paymentMode,
+        transactionType,
+        stationId,
+      } = queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+      if (stationId) {
+        queryBuilder.andWhere(
+          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+          { stationId },
+        );
+      }
+
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
           orderId: `%${orderId}%`,
@@ -1288,6 +1355,7 @@ export class ReportsService {
     transactionType?: string;
     page?: number;
     limit?: number;
+    stationId?: number;
   }) {
     try {
       const {
@@ -1298,6 +1366,7 @@ export class ReportsService {
         transactionType,
         page,
         limit,
+        stationId,
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -1305,6 +1374,13 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+      if (stationId) {
+        queryBuilder.andWhere(
+          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+          { stationId },
+        );
+      }
+
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
           orderId: `%${orderId}%`,
@@ -1331,7 +1407,7 @@ export class ReportsService {
             { fromDate },
           );
         }
-        
+
         if (toDate) {
           queryBuilder.andWhere(
             `(
@@ -1342,7 +1418,6 @@ export class ReportsService {
             { toDate },
           );
         }
-        
 
         if (paymentMode) {
           queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
@@ -1384,16 +1459,29 @@ export class ReportsService {
     orderId?: string;
     paymentMode?: string;
     transactionType?: string;
+    stationId?: number;
   }) {
     try {
-      const { fromDate, toDate, orderId, paymentMode, transactionType } =
-        queryParams;
+      const {
+        fromDate,
+        toDate,
+        orderId,
+        paymentMode,
+        transactionType,
+        stationId,
+      } = queryParams;
 
       const queryBuilder = this.qrRepository
         .createQueryBuilder('qr')
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
+      if (stationId) {
+        queryBuilder.andWhere(
+          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
+          { stationId },
+        );
+      }
       if (orderId) {
         queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
           orderId: `%${orderId}%`,
@@ -1420,7 +1508,7 @@ export class ReportsService {
             { fromDate },
           );
         }
-        
+
         if (toDate) {
           queryBuilder.andWhere(
             `(
@@ -1431,7 +1519,6 @@ export class ReportsService {
             { toDate },
           );
         }
-        
 
         if (paymentMode) {
           queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
@@ -1501,12 +1588,17 @@ export class ReportsService {
   //   }
   // }
 
-  async Ridership(fromDate: Date, toDate: Date) {
+  async Ridership(fromDate: Date, toDate: Date, stationId: number) {
     try {
-      const stations = await this.stationRepository.find({
-        where: { is_active: true },
-        order: { id: 'ASC' },
-      });
+      const stations = stationId
+        ? await this.stationRepository.find({
+            where: { is_active: true, id: stationId },
+            order: { id: 'ASC' },
+          })
+        : await this.stationRepository.find({
+            where: { is_active: true },
+            order: { id: 'ASC' },
+          });
 
       const stationData = await Promise.all(
         stations.map(async (station) => {
@@ -1954,6 +2046,10 @@ export class ReportsService {
 
     const stationArr = [];
     for (const station of stations) {
+      if (station_id && station.id !== station_id) {
+        continue;
+      }
+
       const stationObj = {
         station: station.station_name,
         date: date,
@@ -2260,79 +2356,83 @@ export class ReportsService {
   //   return stationsArr;
   // }
 
-  async getCollectionReportByStation(date, station_id) {
+  async getCollectionReportByStation(date, station_id = null) {
     const startDate = new Date(date);
     const endDate = new Date(date);
     startDate.setUTCHours(0, 0, 0, 0);
     endDate.setUTCHours(23, 59, 59, 999);
 
+    const stationFilter = station_id ? { id: station_id } : {};
+
     const stations = await this.stationRepository.find({
-      select: ['id', 'station_name'],
-      order: { id: 'ASC' },
+        where: stationFilter,
+        select: ['id', 'station_name'],
+        order: { id: 'ASC' },
     });
 
     const stationsArr = [];
 
     for (const station of stations) {
-      let stationObj = {
-        station_name: station.station_name,
-        date: date,
-        shifts: [],
-      };
+        let stationObj = {
+            station_name: station.station_name,
+            date: date,
+            shifts: [],
+        };
 
-      const stationDevices = await this.equipmentRepository.find({
-        where: { station: { id: station.id } },
-      });
-
-      for (const stationDevice of stationDevices) {
-        const sessions = await this.loginSessionRepository.find({
-          where: {
-            device_id: stationDevice.device_id,
-            login_time: Between(startDate, endDate),
-          },
-          select: [
-            'device_id',
-            'shift_id',
-            'user',
-            'no_of_cancelled',
-            'no_of_refund',
-            'total_amount',
-            'login_time',
-            'logout_time',
-            'cash_amount',
-            'upi_amount',
-            'no_of_tickets',
-            'no_of_tickets_cash',
-            'no_of_tickets_upi',
-          ],
+        const stationDevices = await this.equipmentRepository.find({
+            where: { station: { id: station.id } },
         });
 
-        sessions.forEach((session, index) => {
-          let shift = {
-            name: session.shift_id,
-            shift_id: session.shift_id,
-            device_id: stationDevice.device_name,
-            total_amount: session.total_amount,
-            cash_amount: session.cash_amount,
-            upi_amount: session.upi_amount,
-            no_of_tickets: session.no_of_tickets,
-            no_of_tickets_cash: session.no_of_tickets_cash,
-            no_of_tickets_upi: session.no_of_tickets_upi,
-            no_of_refund: session.no_of_refund,
-            no_of_cancelled: session.no_of_cancelled,
-            login_time: session.login_time,
-            logout_time: session.logout_time,
-          };
+        for (const stationDevice of stationDevices) {
+            const sessions = await this.loginSessionRepository.find({
+                where: {
+                    device_id: stationDevice.device_id,
+                    login_time: Between(startDate, endDate),
+                },
+                select: [
+                    'device_id',
+                    'shift_id',
+                    'user',
+                    'no_of_cancelled',
+                    'no_of_refund',
+                    'total_amount',
+                    'login_time',
+                    'logout_time',
+                    'cash_amount',
+                    'upi_amount',
+                    'no_of_tickets',
+                    'no_of_tickets_cash',
+                    'no_of_tickets_upi',
+                ],
+            });
 
-          stationObj.shifts.push(shift);
-        });
-      }
+            sessions.forEach((session) => {
+                let shift = {
+                    name: session.shift_id,
+                    shift_id: session.shift_id,
+                    device_id: stationDevice.device_name,
+                    total_amount: session.total_amount,
+                    cash_amount: session.cash_amount,
+                    upi_amount: session.upi_amount,
+                    no_of_tickets: session.no_of_tickets,
+                    no_of_tickets_cash: session.no_of_tickets_cash,
+                    no_of_tickets_upi: session.no_of_tickets_upi,
+                    no_of_refund: session.no_of_refund,
+                    no_of_cancelled: session.no_of_cancelled,
+                    login_time: session.login_time,
+                    logout_time: session.logout_time,
+                };
 
-      stationsArr.push(stationObj);
+                stationObj.shifts.push(shift);
+            });
+        }
+
+        stationsArr.push(stationObj);
     }
 
     return stationsArr;
-  }
+}
+
 
   async shiftReport(payload: LoginSessionInput) {
     const {
