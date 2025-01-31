@@ -2452,6 +2452,8 @@ export class ReportsService {
       total_cancelled_amount,
       total_refund_amount,
       upi_amount,
+      employee_id,
+      username,
     } = payload;
     const session = this.loginSessionRepository.create({
       station: { id: station },
@@ -2470,6 +2472,8 @@ export class ReportsService {
       total_cancelled_amount,
       total_refund_amount,
       upi_amount,
+      employee_id,
+      username,
     });
     const savedSession = await this.loginSessionRepository.save(session);
     return savedSession;
@@ -2517,6 +2521,8 @@ export class ReportsService {
           'login_time',
           'logout_time',
           'user',
+          'employee_id',
+          'username',
         ],
       });
       return { data: sessions };

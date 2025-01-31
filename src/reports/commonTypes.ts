@@ -17,4 +17,6 @@ export type LoginSessionInput = {
     login_time?: Date;
     logout_time?: Date;
     user: number;
+    employee_id: string;
+    username: string;
   };
