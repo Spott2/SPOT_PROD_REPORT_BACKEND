@@ -86,6 +86,39 @@ export class ReportsController {
     return this.reportsService.getAllPenalties(fromDate, toDate, stationId);
   }
 
+  @Post('closedloop-pagination')
+  getAllClosedloopPagination(
+    @Body()
+    filter: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+     
+      page: number;
+      limit: number;
+    },
+  ) {
+    const { fromDate, toDate, page, limit } = filter;
+    return this.reportsService.getAllClosedloopPagination(
+      fromDate,
+      toDate,
+      page,
+      limit,
+    );
+  }
+
+  @Post('closedloop')
+  getAllClosedloop(
+    @Body()
+    filter: {
+      fromDate?: Date | string;
+      toDate?: Date | string;
+    },
+  ) {
+    const { fromDate, toDate } = filter;
+    return this.reportsService.getAllClosedloop(fromDate, toDate);
+  }
+
+
   @Get('get-dashboard-analytics-all-station')
   getDashboardAnalyticsAllStation() {
     return this.reportsService.getDashboardAnalyticsAllStation();

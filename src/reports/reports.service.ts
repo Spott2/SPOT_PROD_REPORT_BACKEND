@@ -8,6 +8,7 @@ import {
   Penalty,
   Station,
   TransactionQr,
+  Closedloop,
 } from '@spot-demo/shared-entities';
 
 import {
@@ -41,6 +42,9 @@ export class ReportsService {
 
     @InjectRepository(Penalty)
     private penaltyRepository: Repository<Penalty>,
+
+    @InjectRepository(Closedloop)
+    private closedloopRepository: Repository<Closedloop>,
   ) {}
   create(createReportDto: CreateReportDto) {
     return 'This action adds a new report';
@@ -867,7 +871,7 @@ export class ReportsService {
     }
 
     const offset = (page - 1) * limit;
-    query.skip(offset).take(limit).orderBy('penalty.id', 'DESC');;
+    query.skip(offset).take(limit).orderBy('penalty.id', 'DESC');
 
     const [penalties, total] = await query.getManyAndCount();
     return {
@@ -905,7 +909,75 @@ export class ReportsService {
     };
   }
 
-  
+  async getAllClosedloopPagination(
+    fromDate?: Date | string,
+    toDate?: Date | string,
+    page = 1,
+    limit = 10,
+  ) {
+    const query = this.closedloopRepository
+      .createQueryBuilder('card')
+      .leftJoinAndSelect('card.station', 'station')
+      .leftJoinAndSelect('card.destination', 'destination');
+
+    if (fromDate) {
+      query.andWhere('card.created_at >= :fromDate', { fromDate });
+    }
+
+    if (toDate) {
+      query.andWhere('card.created_at <= :toDate', { toDate });
+    }
+
+    const offset = (page - 1) * limit;
+    query.skip(offset).take(limit).orderBy('card.id', 'DESC');
+
+    const [cards, total] = await query.getManyAndCount();
+
+    const formattedCards = cards.map((card) => ({
+      ...card,
+      station_id: card.station?.id || null,
+      station_name: card.station?.station_name || null,
+      destination_id: card.destination?.id || null,
+      destination_name: card.destination?.station_name || null,
+    }));
+
+    return {
+      data: formattedCards,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getAllClosedloop(fromDate?: Date | string, toDate?: Date | string) {
+    const query = this.closedloopRepository
+      .createQueryBuilder('card')
+      .leftJoinAndSelect('card.station', 'station')
+      .leftJoinAndSelect('card.destination', 'destination');
+
+    if (fromDate) {
+      query.andWhere('card.created_at >= :fromDate', { fromDate });
+    }
+
+    if (toDate) {
+      query.andWhere('card.created_at <= :toDate', { toDate });
+    }
+
+    const [cards, total] = await query.getManyAndCount();
+    const formattedCards = cards.map((card) => ({
+      ...card,
+      station_id: card.station?.id || null,
+      station_name: card.station?.station_name || null,
+      destination_id: card.destination?.id || null,
+      destination_name: card.destination?.station_name || null,
+    }));
+
+    return {
+      data: formattedCards,
+      total,
+    };
+  }
 
   async getDashboardAnalyticsAllStation() {
     const today = new Date();
@@ -1639,16 +1711,16 @@ export class ReportsService {
 
   async Ridership(fromDate: Date, toDate: Date, stationId: number) {
     try {
-      const stations = stationId 
+      const stations = stationId
         ? await this.stationRepository.find({
-            where: { is_active: true, id: stationId },  
+            where: { is_active: true, id: stationId },
             order: { id: 'ASC' },
           })
         : await this.stationRepository.find({
             where: { is_active: true },
             order: { id: 'ASC' },
           });
-  
+
       const stationData = await Promise.all(
         stations.map(async (station) => {
           const entryCount = await this.qrRepository
@@ -1660,7 +1732,7 @@ export class ReportsService {
             })
             .select('SUM(qr.entry_count)', 'totalEntryCount')
             .getRawOne();
-  
+
           const exitCount = await this.qrRepository
             .createQueryBuilder('qr')
             .where('qr.destination_id = :destinationId', {
@@ -1672,7 +1744,7 @@ export class ReportsService {
             })
             .select('SUM(qr.exit_count)', 'totalExitCount')
             .getRawOne();
-  
+
           return {
             ...station,
             entryCount: entryCount.totalEntryCount || 0,
@@ -1680,7 +1752,7 @@ export class ReportsService {
           };
         }),
       );
-  
+
       return {
         success: true,
         data: stationData,
@@ -1693,7 +1765,6 @@ export class ReportsService {
       };
     }
   }
-  
 
   async getCollectionReportByDate(date, station_id) {
     const deviceTypes = [
