@@ -15,7 +15,9 @@ import {
   UserGroup,
   LoginSession,
   Penalty,
-  Closedloop
+  Closedloop,
+  Closedloopdetails,
+  Closedlooprechargehistory,
 } from '@spot-demo/shared-entities';
 
 @Module({
@@ -28,7 +30,21 @@ import {
       username: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      entities: [TransactionQr, Qr, Station, Line, Equipment, EquipmentType, User, UserGroup, LoginSession, Penalty,Closedloop],
+      entities: [
+        TransactionQr,
+        Qr,
+        Station,
+        Line,
+        Equipment,
+        EquipmentType,
+        User,
+        UserGroup,
+        LoginSession,
+        Penalty,
+        Closedloop,
+        Closedloopdetails,
+        Closedlooprechargehistory,
+      ],
       synchronize: true,
       // logging: true,
       // ssl: true,

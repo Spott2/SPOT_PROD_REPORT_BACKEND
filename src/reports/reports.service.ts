@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, ILike } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Equipment,
@@ -9,6 +9,8 @@ import {
   Station,
   TransactionQr,
   Closedloop,
+  Closedloopdetails,
+  Closedlooprechargehistory,
 } from '@spot-demo/shared-entities';
 
 import {
@@ -45,6 +47,12 @@ export class ReportsService {
 
     @InjectRepository(Closedloop)
     private closedloopRepository: Repository<Closedloop>,
+
+    @InjectRepository(Closedloopdetails)
+    private closedloopdetailsRepository: Repository<Closedloopdetails>,
+
+    @InjectRepository(Closedlooprechargehistory)
+    private closedlooprechargehistoryRepository: Repository<Closedlooprechargehistory>,
   ) {}
   create(createReportDto: CreateReportDto) {
     return 'This action adds a new report';
@@ -1709,6 +1717,163 @@ export class ReportsService {
   //   }
   // }
 
+  async getCardPagination(
+    card_number: string = null,
+    page: number = 1,
+    limit: number = 100,
+  ) {
+    try {
+      page = page > 0 ? page : 1;
+      limit = limit > 0 ? limit : 10;
+
+      const skip = (page - 1) * limit;
+
+      let cards;
+
+      if (card_number) {
+        cards = await this.closedloopdetailsRepository.find({
+          where: { card_number: ILike(`%${card_number}%`) },
+          skip: skip,
+          take: limit,
+        });
+      } else {
+        cards = await this.closedloopdetailsRepository.find({
+          skip: skip,
+          take: limit,
+        });
+      }
+
+      return cards;
+    } catch (error) {
+      console.error('Error fetching card data:', error);
+      throw new Error('Unable to retrieve card data');
+    }
+  }
+
+  async getCard(card_number: string = null) {
+    try {
+      let cards;
+
+      if (card_number) {
+        cards = await this.closedloopdetailsRepository.find({
+          where: { card_number: ILike(`%${card_number}%`) },
+        });
+      } else {
+        cards = await this.closedloopdetailsRepository.find();
+      }
+
+      return cards;
+    } catch (error) {
+      console.error('Error fetching card data:', error);
+      throw new Error('Unable to retrieve card data');
+    }
+  }
+
+  async getCardRechargePagination(queryParams: {
+    card_number?: string;
+    page?: number;
+    limit?: number;
+    fromDate?: string;
+    toDate?: string;
+  }) {
+    try {
+      const { card_number, page = 1, limit = 100, fromDate, toDate } = queryParams;
+  
+      const skip = (page - 1) * limit;
+  
+      const queryBuilder = this.closedlooprechargehistoryRepository
+        .createQueryBuilder('recharge')
+  
+      if (card_number) {
+        queryBuilder.andWhere('recharge.card_number ILIKE :card_number', {
+          card_number: `%${card_number}%`,
+        });
+      }
+  
+      if (fromDate) {
+        queryBuilder.andWhere('recharge.last_recharge_at >= :fromDate', {
+          fromDate,
+        });
+      }
+  
+      if (toDate) {
+        queryBuilder.andWhere('recharge.last_recharge_at <= :toDate', {
+          toDate,
+        });
+      }
+  
+      queryBuilder.skip(skip).take(limit);
+      queryBuilder.orderBy('recharge.last_recharge_at', 'DESC');
+
+  
+      const [recharges, total] = await queryBuilder.getManyAndCount();
+  
+      return {
+        success: true,
+        message: 'Successfully retrieved all card recharge records',
+        data: recharges,
+        total,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve card recharge records',
+        error: error.message,
+      };
+    }
+  }
+  
+  async getCardRecharge(queryParams: {
+    card_number?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) {
+    try {
+      const { card_number,fromDate, toDate } = queryParams;
+  
+  
+      const queryBuilder = this.closedlooprechargehistoryRepository
+        .createQueryBuilder('recharge')
+  
+      if (card_number) {
+        queryBuilder.andWhere('recharge.card_number ILIKE :card_number', {
+          card_number: `%${card_number}%`,
+        });
+      }
+  
+      if (fromDate) {
+        queryBuilder.andWhere('recharge.last_recharge_at >= :fromDate', {
+          fromDate,
+        });
+      }
+  
+      if (toDate) {
+        queryBuilder.andWhere('recharge.last_recharge_at <= :toDate', {
+          toDate,
+        });
+      }
+  
+     
+  
+      const [recharges, total] = await queryBuilder.getManyAndCount();
+      queryBuilder.orderBy('recharge.last_recharge_at', 'DESC');
+
+  
+      return {
+        success: true,
+        message: 'Successfully retrieved all card recharge records',
+        data: recharges,
+        total,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve card recharge records',
+        error: error.message,
+      };
+    }
+  }
+  
   async Ridership(fromDate: Date, toDate: Date, stationId: number) {
     try {
       const stations = stationId

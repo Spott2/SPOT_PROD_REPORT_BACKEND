@@ -92,7 +92,7 @@ export class ReportsController {
     filter: {
       fromDate?: Date | string;
       toDate?: Date | string;
-     
+
       page: number;
       limit: number;
     },
@@ -117,7 +117,6 @@ export class ReportsController {
     const { fromDate, toDate } = filter;
     return this.reportsService.getAllClosedloop(fromDate, toDate);
   }
-
 
   @Get('get-dashboard-analytics-all-station')
   getDashboardAnalyticsAllStation() {
@@ -331,14 +330,18 @@ export class ReportsController {
     body: {
       fromDate: Date | string;
       toDate: Date | string;
-      stationId: number
+      stationId: number;
     },
   ) {
     try {
       const fromDate = body.fromDate ? new Date(body.fromDate) : null;
       const toDate = body.toDate ? new Date(body.toDate) : null;
 
-      const result = await this.reportsService.Ridership(fromDate, toDate, body.stationId);
+      const result = await this.reportsService.Ridership(
+        fromDate,
+        toDate,
+        body.stationId,
+      );
       return result;
     } catch (error) {
       throw new HttpException(
@@ -379,6 +382,88 @@ export class ReportsController {
       body.date,
       body.station,
     );
+  }
+  @Post('card-data-pagination')
+  async getCardPagination(
+    @Body() body: { card_number?: string; page?: number; limit?: number },
+  ) {
+    const { card_number, page = 1, limit = 100 } = body;
+
+    return this.reportsService.getCardPagination(card_number, page, limit);
+  }
+
+  @Post('card-data')
+  getCard(@Body() body: { card_number?: string }) {
+    return this.reportsService.getCard(body.card_number);
+  }
+
+  @Post('card-recharge-pagination')
+  async getCardRechargePagination(
+    @Body()
+    body: {
+      card_number?: string;
+      page?: number;
+      limit?: number;
+      fromDate?: string;
+      toDate?: string;
+    },
+  ) {
+    const { card_number, page = 1, limit = 100, fromDate, toDate } = body;
+
+    try {
+      const result = await this.reportsService.getCardRechargePagination({
+        card_number,
+        page,
+        limit,
+        fromDate,
+        toDate,
+      });
+
+      return {
+        success: true,
+        message: 'Successfully retrieved card recharge data',
+        data: result.data,
+        total: result.total,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve card recharge data',
+        error: error.message,
+      };
+    }
+  }
+
+  @Post('card-recharge')
+  async getCardRecharge(
+    @Body()
+    body: {
+      card_number?: string;
+      fromDate?: string;
+      toDate?: string;
+    },
+  ) {
+    const { card_number, fromDate, toDate } = body;
+
+    try {
+      const result = await this.reportsService.getCardRecharge({
+        card_number,
+        fromDate,
+        toDate,
+      });
+
+      return {
+        success: true,
+        message: 'Successfully retrieved card recharge data',
+        data: result.data,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve card recharge data',
+        error: error.message,
+      };
+    }
   }
 
   @Post('shift-report')
