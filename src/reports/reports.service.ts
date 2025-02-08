@@ -11,6 +11,7 @@ import {
   Closedloop,
   Closedloopdetails,
   Closedlooprechargehistory,
+  Closedlooppenalty,
 } from '@spot-demo/shared-entities';
 
 import {
@@ -53,6 +54,9 @@ export class ReportsService {
 
     @InjectRepository(Closedlooprechargehistory)
     private closedlooprechargehistoryRepository: Repository<Closedlooprechargehistory>,
+
+    @InjectRepository(Closedlooppenalty)
+    private closedlooppenalty: Repository<Closedlooppenalty>,
   ) {}
   create(createReportDto: CreateReportDto) {
     return 'This action adds a new report';
@@ -1777,37 +1781,41 @@ export class ReportsService {
     toDate?: string;
   }) {
     try {
-      const { card_number, page = 1, limit = 100, fromDate, toDate } = queryParams;
-  
+      const {
+        card_number,
+        page = 1,
+        limit = 100,
+        fromDate,
+        toDate,
+      } = queryParams;
+
       const skip = (page - 1) * limit;
-  
-      const queryBuilder = this.closedlooprechargehistoryRepository
-        .createQueryBuilder('recharge')
-  
+
+      const queryBuilder =
+        this.closedlooprechargehistoryRepository.createQueryBuilder('recharge');
+
       if (card_number) {
         queryBuilder.andWhere('recharge.card_number ILIKE :card_number', {
           card_number: `%${card_number}%`,
         });
+      } else {
+        if (fromDate) {
+          queryBuilder.andWhere('recharge.last_recharge_at >= :fromDate', {
+            fromDate,
+          });
+        }
+
+        if (toDate) {
+          queryBuilder.andWhere('recharge.last_recharge_at <= :toDate', {
+            toDate,
+          });
+        }
       }
-  
-      if (fromDate) {
-        queryBuilder.andWhere('recharge.last_recharge_at >= :fromDate', {
-          fromDate,
-        });
-      }
-  
-      if (toDate) {
-        queryBuilder.andWhere('recharge.last_recharge_at <= :toDate', {
-          toDate,
-        });
-      }
-  
       queryBuilder.skip(skip).take(limit);
       queryBuilder.orderBy('recharge.last_recharge_at', 'DESC');
 
-  
       const [recharges, total] = await queryBuilder.getManyAndCount();
-  
+
       return {
         success: true,
         message: 'Successfully retrieved all card recharge records',
@@ -1822,43 +1830,41 @@ export class ReportsService {
       };
     }
   }
-  
+
   async getCardRecharge(queryParams: {
     card_number?: string;
     fromDate?: string;
     toDate?: string;
   }) {
     try {
-      const { card_number,fromDate, toDate } = queryParams;
-  
-  
-      const queryBuilder = this.closedlooprechargehistoryRepository
-        .createQueryBuilder('recharge')
-  
+      const { card_number, fromDate, toDate } = queryParams;
+
+      const queryBuilder =
+        this.closedlooprechargehistoryRepository.createQueryBuilder('recharge');
+
       if (card_number) {
         queryBuilder.andWhere('recharge.card_number ILIKE :card_number', {
           card_number: `%${card_number}%`,
         });
+      } else {
+        if (fromDate) {
+          queryBuilder.andWhere('recharge.last_recharge_at >= :fromDate', {
+            fromDate,
+          });
+        }
+
+        if (toDate) {
+          queryBuilder.andWhere('recharge.last_recharge_at <= :toDate', {
+            toDate,
+          });
+        }
       }
-  
-      if (fromDate) {
-        queryBuilder.andWhere('recharge.last_recharge_at >= :fromDate', {
-          fromDate,
-        });
-      }
-  
-      if (toDate) {
-        queryBuilder.andWhere('recharge.last_recharge_at <= :toDate', {
-          toDate,
-        });
-      }
-  
-     
-  
-      const [recharges, total] = await queryBuilder.getManyAndCount();
       queryBuilder.orderBy('recharge.last_recharge_at', 'DESC');
 
-  
+      const [recharges, total] = await queryBuilder.getManyAndCount();
+
+      queryBuilder.orderBy('recharge.last_recharge_at', 'DESC');
+
       return {
         success: true,
         message: 'Successfully retrieved all card recharge records',
@@ -1873,7 +1879,113 @@ export class ReportsService {
       };
     }
   }
-  
+
+  async getCardPenaltyPagination(queryParams: {
+    card_number?: string;
+    page?: number;
+    limit?: number;
+    fromDate?: string;
+    toDate?: string;
+  }) {
+    try {
+      const {
+        card_number,
+        page = 1,
+        limit = 100,
+        fromDate,
+        toDate,
+      } = queryParams;
+
+      const skip = (page - 1) * limit;
+
+      const queryBuilder = this.closedlooppenalty.createQueryBuilder('penalty');
+
+      if (card_number) {
+        queryBuilder.andWhere('penalty.card_number ILIKE :card_number', {
+          card_number: `%${card_number}%`,
+        });
+      } else {
+        if (fromDate) {
+          queryBuilder.andWhere('penalty.created_at >= :fromDate', {
+            fromDate,
+          });
+        }
+
+        if (toDate) {
+          queryBuilder.andWhere('penalty.created_at <= :toDate', {
+            toDate,
+          });
+        }
+      }
+      queryBuilder.skip(skip).take(limit);
+      queryBuilder.orderBy('penalty.created_at', 'DESC');
+
+      const [recharges, total] = await queryBuilder.getManyAndCount();
+
+      return {
+        success: true,
+        message: 'Successfully retrieved all card recharge records',
+        data: recharges,
+        total,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve card recharge records',
+        error: error.message,
+      };
+    }
+  }
+
+  async getCardPenalty(queryParams: {
+    card_number?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) {
+    try {
+      const { card_number, fromDate, toDate } = queryParams;
+
+      const queryBuilder =
+        this.closedlooppenalty.createQueryBuilder('penalty');
+
+      if (card_number) {
+        queryBuilder.andWhere('penalty.card_number ILIKE :card_number', {
+          card_number: `%${card_number}%`,
+        });
+      } else {
+        if (fromDate) {
+          queryBuilder.andWhere('penalty.created_at >= :fromDate', {
+            fromDate,
+          });
+        }
+
+        if (toDate) {
+          queryBuilder.andWhere('penalty.created_at <= :toDate', {
+            toDate,
+          });
+        }
+      }
+      queryBuilder.orderBy('penalty.created_at', 'DESC');
+
+      const [recharges, total] = await queryBuilder.getManyAndCount();
+
+      queryBuilder.orderBy('recharge.last_recharge_at', 'DESC');
+
+      return {
+        success: true,
+        message: 'Successfully retrieved all card recharge records',
+        data: recharges,
+        total,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve card recharge records',
+        error: error.message,
+      };
+    }
+  }
+
   async Ridership(fromDate: Date, toDate: Date, stationId: number) {
     try {
       const stations = stationId

@@ -466,6 +466,75 @@ export class ReportsController {
     }
   }
 
+  @Post('card-penalty-pagination')
+  async getCardPenaltyPagination(
+    @Body()
+    body: {
+      card_number?: string;
+      page?: number;
+      limit?: number;
+      fromDate?: string;
+      toDate?: string;
+    },
+  ) {
+    const { card_number, page = 1, limit = 100, fromDate, toDate } = body;
+
+    try {
+      const result = await this.reportsService.getCardPenaltyPagination({
+        card_number,
+        page,
+        limit,
+        fromDate,
+        toDate,
+      });
+
+      return {
+        success: true,
+        message: 'Successfully retrieved card recharge data',
+        data: result.data,
+        total: result.total,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve card recharge data',
+        error: error.message,
+      };
+    }
+  }
+
+  @Post('card-penalty')
+  async getCardPenalty(
+    @Body()
+    body: {
+      card_number?: string;
+      fromDate?: string;
+      toDate?: string;
+    },
+  ) {
+    const { card_number, fromDate, toDate } = body;
+
+    try {
+      const result = await this.reportsService.getCardPenalty({
+        card_number,
+        fromDate,
+        toDate,
+      });
+
+      return {
+        success: true,
+        message: 'Successfully retrieved card recharge data',
+        data: result.data,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve card recharge data',
+        error: error.message,
+      };
+    }
+  }
+
   @Post('shift-report')
   shiftReport(@Body() body: LoginSessionInput) {
     return this.reportsService.shipReport(body);

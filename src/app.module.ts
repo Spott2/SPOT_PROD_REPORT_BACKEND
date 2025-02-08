@@ -18,6 +18,7 @@ import {
   Closedloop,
   Closedloopdetails,
   Closedlooprechargehistory,
+  Closedlooppenalty,
 } from '@spot-demo/shared-entities';
 
 @Module({
@@ -44,6 +45,7 @@ import {
         Closedloop,
         Closedloopdetails,
         Closedlooprechargehistory,
+        Closedlooppenalty
       ],
       synchronize: true,
       // logging: true,
