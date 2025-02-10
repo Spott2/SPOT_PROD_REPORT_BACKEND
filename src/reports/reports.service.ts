@@ -103,7 +103,36 @@ export class ReportsService {
       .groupBy('qr.source_id')
       .getRawMany();
 
-    const dashboardAnalytics = stations.map((station) => {
+    const rechargeData = await this.closedlooprechargehistoryRepository
+      .createQueryBuilder('recharge')
+      .select('SUM(recharge.amount)', 'total_recharge')
+      .where('recharge.created_at::date = :currentDate', { currentDate })
+      .getRawOne();
+
+    const penaltyData = await this.closedlooppenalty
+      .createQueryBuilder('penalty')
+      .select('SUM(penalty.penalty)', 'total_penalty')
+      .where('penalty.created_at::date = :currentDate', { currentDate })
+      .getRawOne();
+
+      const earningsData = await this.closedloopRepository
+      .createQueryBuilder('fare')
+      .select('SUM(CAST(fare.fare AS numeric))', 'total_earnings')  
+      .where('fare.created_at::date = :currentDate', { currentDate })
+      .andWhere('fare.destinationId IS NOT NULL')
+      .getRawOne();
+  
+
+    const totalRecharge = rechargeData
+      ? Number(rechargeData.total_recharge)
+      : 0;
+
+    const totalPenalty = penaltyData ? Number(penaltyData.total_penalty) : 0;
+
+    const totalEarnings = earningsData ? Number(earningsData.total_earnings) : 0;
+
+
+    const dashboardAnalytics = stations.map((station, index) => {
       const transaction = transactionData.find(
         (txn) => txn.station_id === station.id,
       );
@@ -127,7 +156,9 @@ export class ReportsService {
         total_exit_count: entryExitCounts
           ? parseInt(entryExitCounts.total_exit_count, 10)
           : 0,
-      };
+        total_recharge: index === 0 ? totalRecharge : 0,
+        total_penalty: index === 0 ? totalPenalty : 0,
+        total_earnings: index === 0 ? totalEarnings : 0,      };
     });
 
     const sortedAnalytics = dashboardAnalytics.sort(
@@ -172,7 +203,7 @@ export class ReportsService {
       const nextDay = new Date(day);
       nextDay.setDate(day.getDate() + 1);
       nextDay.setHours(0, 0, 0, -1);
-      console.log(day, nextDay, 'scvsdvcewcv');
+      // console.log(day, nextDay, 'scvsdvcewcv');
 
       // Transaction query for total amount
       const { total_amount, total_no_of_tickets, total_cash, total_online } =
@@ -1028,7 +1059,7 @@ export class ReportsService {
       .orderBy('DATE(transaction.created_at)', 'ASC')
       .getRawMany();
 
-    console.log('Daily Revenue Data:', dailyRevenue);
+    // console.log('Daily Revenue Data:', dailyRevenue);
 
     const formattedDailyRevenue = allDates.map((day) => {
       const dayString = format(day, 'yyyy-MM-dd');
@@ -1945,8 +1976,7 @@ export class ReportsService {
     try {
       const { card_number, fromDate, toDate } = queryParams;
 
-      const queryBuilder =
-        this.closedlooppenalty.createQueryBuilder('penalty');
+      const queryBuilder = this.closedlooppenalty.createQueryBuilder('penalty');
 
       if (card_number) {
         queryBuilder.andWhere('penalty.card_number ILIKE :card_number', {
@@ -2109,7 +2139,7 @@ export class ReportsService {
           devices = [...devices, ...filteredDevices];
         }
       }
-      console.log('Filtered devices:', devices);
+      // console.log('Filtered devices:', devices);
 
       for (const el of deviceTypes) {
         let deviceTotal = {
@@ -2200,7 +2230,7 @@ export class ReportsService {
             })
             .getRawOne();
 
-          console.log('result', result);
+          // console.log('result', result);
 
           // const penaltyTransactions = await this.transactionRepository
           //   .createQueryBuilder('ts1')
@@ -2733,7 +2763,7 @@ export class ReportsService {
       select: ['device_name'],
     });
     const deviceTypes = equipmentRes.map((equipment) => equipment.device_name);
-    console.log('a', equipmentRes);
+    // console.log('a', equipmentRes);
 
     if (!deviceTypes || deviceTypes.length === 0) {
       throw new Error('No devices found in the equipment API response.');
@@ -2875,7 +2905,7 @@ export class ReportsService {
       const startDate = new Date(fromDate);
       const toDate = new Date(endDate);
 
-      console.log(station);
+      // console.log(station);
 
       startDate.setUTCHours(0, 0, 0, 0);
       toDate.setUTCHours(23, 59, 59, 999);
@@ -2885,7 +2915,7 @@ export class ReportsService {
       if (station) {
         where.station = { id: station };
       }
-      console.log(where);
+      // console.log(where);
       const sessions = await this.loginSessionRepository.find({
         where,
         relations: ['station', 'user'],
