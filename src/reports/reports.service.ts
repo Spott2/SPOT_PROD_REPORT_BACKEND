@@ -1831,19 +1831,19 @@ export class ReportsService {
         });
       } else {
         if (fromDate) {
-          queryBuilder.andWhere('recharge.last_recharge_at >= :fromDate', {
+          queryBuilder.andWhere('recharge.created_at >= :fromDate', {
             fromDate,
           });
         }
 
         if (toDate) {
-          queryBuilder.andWhere('recharge.last_recharge_at <= :toDate', {
+          queryBuilder.andWhere('recharge.created_at <= :toDate', {
             toDate,
           });
         }
       }
       queryBuilder.skip(skip).take(limit);
-      queryBuilder.orderBy('recharge.last_recharge_at', 'DESC');
+      queryBuilder.orderBy('recharge.created_at', 'DESC');
 
       const [recharges, total] = await queryBuilder.getManyAndCount();
 
@@ -1879,22 +1879,22 @@ export class ReportsService {
         });
       } else {
         if (fromDate) {
-          queryBuilder.andWhere('recharge.last_recharge_at >= :fromDate', {
+          queryBuilder.andWhere('recharge.created_at >= :fromDate', {
             fromDate,
           });
         }
 
         if (toDate) {
-          queryBuilder.andWhere('recharge.last_recharge_at <= :toDate', {
+          queryBuilder.andWhere('recharge.created_at <= :toDate', {
             toDate,
           });
         }
       }
-      queryBuilder.orderBy('recharge.last_recharge_at', 'DESC');
+      queryBuilder.orderBy('recharge.created_at', 'DESC');
 
       const [recharges, total] = await queryBuilder.getManyAndCount();
 
-      queryBuilder.orderBy('recharge.last_recharge_at', 'DESC');
+      queryBuilder.orderBy('recharge.created_at', 'DESC');
 
       return {
         success: true,
