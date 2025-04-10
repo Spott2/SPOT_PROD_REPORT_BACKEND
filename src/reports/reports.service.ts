@@ -8,8 +8,8 @@ import {
   Penalty,
   Station,
   TransactionQr,
-} from '@spot-demo/shared-entities';
-import { Qr, LoginSession } from '@spot-demo/shared-entities';
+} from '@spot-demo-v2/shared-entities';
+import { Qr, LoginSession } from '@spot-demo-v2/shared-entities';
 import axios from 'axios';
 import { LoginSessionInput } from './commonTypes';
 import {
