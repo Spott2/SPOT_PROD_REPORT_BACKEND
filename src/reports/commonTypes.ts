@@ -1,4 +1,4 @@
-import { Station, User } from "@spot-demo-v2/shared-entities";
+import { Station, User } from "@spot-demo/shared-entities";
 
 export type LoginSessionInput = {
     device_id?: string;

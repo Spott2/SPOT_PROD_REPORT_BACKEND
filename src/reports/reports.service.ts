@@ -8,8 +8,8 @@ import {
   Penalty,
   Station,
   TransactionQr,
-} from '@spot-demo-v2/shared-entities';
-import { Qr, LoginSession } from '@spot-demo-v2/shared-entities';
+} from '@spot-demo/shared-entities';
+import { Qr, LoginSession } from '@spot-demo/shared-entities';
 import axios from 'axios';
 import { LoginSessionInput } from './commonTypes';
 import {
@@ -49,49 +49,233 @@ export class ReportsService {
     const stations = await this.stationRepository.find();
     const currentDate = new Date().toISOString().split('T')[0];
 
-    const transactionData = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .leftJoin('transaction.station', 'station')
-      .select('station.id', 'station_id')
-      .addSelect('station.station_name', 'station_name')
-      .addSelect('SUM(transaction.amount)', 'total_amount')
-      .addSelect('SUM(transaction.no_of_tickets)', 'total_no_of_tickets')
-      .addSelect(
-        "SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END)",
-        'total_cash',
-      )
-      .addSelect(
-        `
-        SUM(CASE 
-            WHEN transaction.payment_mode ILIKE 'online' OR 
-                 transaction.payment_mode ILIKE 'credit_card' OR 
-                 transaction.payment_mode ILIKE 'upi' 
-            THEN transaction.amount 
-            ELSE 0 
-        END)
-        `,
-        'total_online',
-      )
+    // const transactionData = await this.transactionRepository
+    //   .createQueryBuilder('transaction')
+    //   .leftJoin('transaction.station', 'station')
+    //   .select('station.id', 'station_id')
+    //   .addSelect('station.station_name', 'station_name')
+    //   .addSelect('SUM(transaction.amount)', 'total_amount')
+    //   .addSelect('SUM(transaction.no_of_tickets)', 'total_no_of_tickets')
+    //   .addSelect(
+    //     "SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END)",
+    //     'total_cash',
+    //   )
+    //   .addSelect(
+    //     `
+    //     SUM(CASE 
+    //         WHEN transaction.payment_mode ILIKE 'online' OR 
+    //              transaction.payment_mode ILIKE 'credit_card' OR 
+    //              transaction.payment_mode ILIKE 'upi' 
+    //         THEN transaction.amount 
+    //         ELSE 0 
+    //     END)
+    //     `,
+    //     'total_online',
+    //   )
+    //   .where(
+    //     `(
+    //       (transaction.extended_time IS NOT NULL AND transaction.extended_time::date = :currentDate)
+    //       OR
+    //       (transaction.extended_time IS NULL AND transaction.created_at::date = :currentDate)
+    //     )`,
+    //     { currentDate },
+    //   )
 
-      // .where('transaction.created_at::date = :currentDate', { currentDate })
-      .where(
-        `(
-          (transaction.extended_time IS NOT NULL AND transaction.extended_time::date = :currentDate)
-          OR
-          (transaction.extended_time IS NULL AND transaction.created_at::date = :currentDate)
-        )`,
-        { currentDate },
-      )
-
-      .groupBy('station.id')
-      .getRawMany();
+    //   .groupBy('station.id')
+    //   .getRawMany();
 
     const qrData = await this.qrRepository
       .createQueryBuilder('qr')
       .select('qr.source_id', 'station_id')
       .addSelect('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
       .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-      // .where('qr.qr_date_time::date = :currentDate', { currentDate })
+      .addSelect('COUNT(*)', 'total_no_of_tickets')
+     
+      .addSelect(
+        `
+        SUM(
+          CASE
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                  ELSE original.amount
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: current + ref
+            WHEN qr.type = 'PENALTY' THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                  ELSE original.amount
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            -- REFUNDED: regular ticket
+            WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+      
+            ELSE qr.amount
+          END
+        )
+        `,
+        'total_amount',
+      )
+     
+     
+      .addSelect(
+        `
+        SUM(
+          CASE 
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref if cash
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                  ELSE 0
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: both current and ref if both are cash
+            WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                  ELSE 0
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
+            WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
+      
+            ELSE 0
+          END
+        )
+        `,
+        'total_cash',
+      )
+      .addSelect(
+        `
+        SUM(
+          CASE 
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref if online
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND (
+                    original.payment_mode ILIKE 'online' OR 
+                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'upi'
+                  ) THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'online' OR 
+                       original.payment_mode ILIKE 'credit_card' OR 
+                       original.payment_mode ILIKE 'upi' THEN original.amount
+                  ELSE 0
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: add current + ref if both are online-like
+            WHEN qr.type = 'PENALTY' AND (
+              qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
+            ) THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND (
+                    original.payment_mode ILIKE 'online' OR 
+                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'upi'
+                  ) THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'online' OR 
+                       original.payment_mode ILIKE 'credit_card' OR 
+                       original.payment_mode ILIKE 'upi' THEN original.amount
+                  ELSE 0
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            WHEN qr.status = 'REFUNDED' AND (
+              qr.payment_mode ILIKE 'online' OR 
+              qr.payment_mode ILIKE 'credit_card' OR 
+              qr.payment_mode ILIKE 'upi'
+            ) THEN qr.admin_fee
+      
+            WHEN qr.payment_mode ILIKE 'online' OR 
+                 qr.payment_mode ILIKE 'credit_card' OR 
+                 qr.payment_mode ILIKE 'upi' THEN qr.amount
+      
+            ELSE 0
+          END
+        )
+        `,
+        'total_online',
+      )
+      // .addSelect(
+      //   `
+      //   SUM(
+      //     CASE 
+      //       WHEN qr.status = 'CANCELLED' OR qr.type IN ('FREE', 'DUPLICATE') THEN 0
+      //       WHEN qr.status = 'REFUNDED' AND (
+      //         qr.payment_mode ILIKE 'online' OR 
+      //         qr.payment_mode ILIKE 'credit_card' OR 
+      //         qr.payment_mode ILIKE 'upi'
+      //       ) THEN qr.admin_fee
+      //       WHEN qr.payment_mode ILIKE 'online' OR 
+      //            qr.payment_mode ILIKE 'credit_card' OR 
+      //            qr.payment_mode ILIKE 'upi' THEN qr.amount
+      //       ELSE 0
+      //     END
+      //   )
+      //   `,
+      //   'total_online',
+      // )
+      // .addSelect(
+      //   "SUM(CASE WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount ELSE 0 END)",
+      //   'total_cash',
+      // )
+      // .addSelect(
+      //   `
+      //   SUM(CASE
+      //       WHEN qr.payment_mode ILIKE 'online' OR
+      //            qr.payment_mode ILIKE 'credit_card' OR
+      //            qr.payment_mode ILIKE 'upi'
+      //       THEN qr.amount
+      //       ELSE 0
+      //   END)
+      //   `,
+      //   'total_online',
+      // )
       .where(
         `(
           (qr.extended_time IS NOT NULL AND qr.extended_time::date = :currentDate)
@@ -104,8 +288,10 @@ export class ReportsService {
       .groupBy('qr.source_id')
       .getRawMany();
 
+      console.log(qrData, "transactionData")
+
     const dashboardAnalytics = stations.map((station) => {
-      const transaction = transactionData.find(
+      const transaction = qrData.find(
         (txn) => txn.station_id === station.id,
       );
 
@@ -176,56 +362,208 @@ export class ReportsService {
       console.log(day, nextDay, 'scvsdvcewcv');
 
       // Transaction query for total amount
-      const { total_amount, total_no_of_tickets, total_cash, total_online } =
-        await this.transactionRepository
-          .createQueryBuilder('transaction')
-          .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
-          .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
-            'total_cash',
-          )
-          .addSelect(
-            `
-            SUM(CASE 
-                WHEN transaction.payment_mode ILIKE 'online' OR 
-                     transaction.payment_mode ILIKE 'credit_card' OR 
-                     transaction.payment_mode ILIKE 'upi' 
-                THEN transaction.amount 
-                ELSE 0 
-            END)
-            `,
-            'total_online',
-          )
+      // const { total_amount, total_no_of_tickets, total_cash, total_online } =
+      //   await this.transactionRepository
+      //     .createQueryBuilder('transaction')
+      //     .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
+      //     .addSelect(
+      //       "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
+      //       'total_cash',
+      //     )
+      //     .addSelect(
+      //       `
+      //       SUM(CASE 
+      //           WHEN transaction.payment_mode ILIKE 'online' OR 
+      //                transaction.payment_mode ILIKE 'credit_card' OR 
+      //                transaction.payment_mode ILIKE 'upi' 
+      //           THEN transaction.amount 
+      //           ELSE 0 
+      //       END)
+      //       `,
+      //       'total_online',
+      //     )
 
-          .addSelect(
-            'COALESCE(SUM(transaction.no_of_tickets), 0)',
-            'total_no_of_tickets',
-          )
-          // .where('transaction.created_at BETWEEN :day AND :nextDay', {
-          //   day: day.toISOString(),
-          //   nextDay: nextDay.toISOString(),
-          // })
+      //     .addSelect(
+      //       'COALESCE(SUM(transaction.no_of_tickets), 0)',
+      //       'total_no_of_tickets',
+      //     )
+      //     // .where('transaction.created_at BETWEEN :day AND :nextDay', {
+      //     //   day: day.toISOString(),
+      //     //   nextDay: nextDay.toISOString(),
+      //     // })
 
-          .where(
-            `(
-              (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :day AND :nextDay)
-              OR
-              (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :day AND :nextDay)
-            )`,
-            {
-              day: day.toISOString(),
-              nextDay: nextDay.toISOString(),
-            },
-          )
+      //     .where(
+      //       `(
+      //         (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :day AND :nextDay)
+      //         OR
+      //         (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :day AND :nextDay)
+      //       )`,
+      //       {
+      //         day: day.toISOString(),
+      //         nextDay: nextDay.toISOString(),
+      //       },
+      //     )
 
-          .andWhere('transaction.station = :stationId', { stationId })
-          .getRawOne();
+      //     .andWhere('transaction.station = :stationId', { stationId })
+      //     .getRawOne();
 
       // Qr query for entry and exit counts
       const qrData = await this.qrRepository
         .createQueryBuilder('qr')
         .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
         .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+        .addSelect('COUNT(*)', 'total_no_of_tickets')
+     
+      .addSelect(
+        `
+        SUM(
+          CASE
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                  ELSE original.amount
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: current + ref
+            WHEN qr.type = 'PENALTY' THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                  ELSE original.amount
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            -- REFUNDED: regular ticket
+            WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+      
+            ELSE qr.amount
+          END
+        )
+        `,
+        'total_amount',
+      )
+     
+     
+      .addSelect(
+        `
+        SUM(
+          CASE 
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref if cash
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                  ELSE 0
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: both current and ref if both are cash
+            WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                  ELSE 0
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
+            WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
+      
+            ELSE 0
+          END
+        )
+        `,
+        'total_cash',
+      )
+      .addSelect(
+        `
+        SUM(
+          CASE 
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref if online
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND (
+                    original.payment_mode ILIKE 'online' OR 
+                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'upi'
+                  ) THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'online' OR 
+                       original.payment_mode ILIKE 'credit_card' OR 
+                       original.payment_mode ILIKE 'upi' THEN original.amount
+                  ELSE 0
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: add current + ref if both are online-like
+            WHEN qr.type = 'PENALTY' AND (
+              qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
+            ) THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND (
+                    original.payment_mode ILIKE 'online' OR 
+                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'upi'
+                  ) THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'online' OR 
+                       original.payment_mode ILIKE 'credit_card' OR 
+                       original.payment_mode ILIKE 'upi' THEN original.amount
+                  ELSE 0
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            WHEN qr.status = 'REFUNDED' AND (
+              qr.payment_mode ILIKE 'online' OR 
+              qr.payment_mode ILIKE 'credit_card' OR 
+              qr.payment_mode ILIKE 'upi'
+            ) THEN qr.admin_fee
+      
+            WHEN qr.payment_mode ILIKE 'online' OR 
+                 qr.payment_mode ILIKE 'credit_card' OR 
+                 qr.payment_mode ILIKE 'upi' THEN qr.amount
+      
+            ELSE 0
+          END
+        )
+        `,
+        'total_online',
+      )
         // .where('qr.qr_date_time BETWEEN :day AND :nextDay', {
         //   day: day.toISOString(),
         //   nextDay: nextDay.toISOString(),
@@ -250,11 +588,11 @@ export class ReportsService {
 
       past7Days.push({
         date: formatDate(day),
-        total_cash: total_cash ? Number(total_cash) : 0,
-        total_online: total_online ? Number(total_online) : 0,
-        total_amount: total_amount ? Number(total_amount) : 0,
-        total_no_of_tickets: total_no_of_tickets
-          ? Number(total_no_of_tickets)
+        total_cash: qrData.total_cash ? Number(qrData.total_cash) : 0,
+        total_online: qrData.total_online ? Number(qrData.total_online) : 0,
+        total_amount: qrData.total_amount ? Number(qrData.total_amount) : 0,
+        total_no_of_tickets: qrData.total_no_of_tickets
+          ? Number(qrData.total_no_of_tickets)
           : 0,
         total_entry_count: parseInt(qrData.total_entry_count, 10),
         total_exit_count: parseInt(qrData.total_exit_count, 10),
@@ -291,57 +629,209 @@ export class ReportsService {
     const todayData = await Promise.all(
       stations.map(async (station) => {
         // Transaction query for total amount
-        const { total_amount, total_no_of_tickets, total_cash, total_online } =
-          await this.transactionRepository
-            .createQueryBuilder('transaction')
-            .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
-            .addSelect(
-              "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
-              'total_cash',
-            )
-            .addSelect(
-              `
-              SUM(CASE 
-                  WHEN transaction.payment_mode ILIKE 'online' OR 
-                       transaction.payment_mode ILIKE 'credit_card' OR 
-                       transaction.payment_mode ILIKE 'upi' 
-                  THEN transaction.amount 
-                  ELSE 0 
-              END)
-              `,
-              'total_online',
-            )
-            .addSelect(
-              'COALESCE(SUM(transaction.no_of_tickets), 0)',
-              'total_no_of_tickets',
-            )
-            // .where('transaction.created_at BETWEEN :start AND :end', {
-            //   start: istStartOfDay.toISOString(),
-            //   end: istEndOfDay.toISOString(),
-            // })
+        // const { total_amount, total_no_of_tickets, total_cash, total_online } =
+        //   await this.transactionRepository
+        //     .createQueryBuilder('transaction')
+        //     .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
+        //     .addSelect(
+        //       "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
+        //       'total_cash',
+        //     )
+        //     .addSelect(
+        //       `
+        //       SUM(CASE 
+        //           WHEN transaction.payment_mode ILIKE 'online' OR 
+        //                transaction.payment_mode ILIKE 'credit_card' OR 
+        //                transaction.payment_mode ILIKE 'upi' 
+        //           THEN transaction.amount 
+        //           ELSE 0 
+        //       END)
+        //       `,
+        //       'total_online',
+        //     )
+        //     .addSelect(
+        //       'COALESCE(SUM(transaction.no_of_tickets), 0)',
+        //       'total_no_of_tickets',
+        //     )
+        //     // .where('transaction.created_at BETWEEN :start AND :end', {
+        //     //   start: istStartOfDay.toISOString(),
+        //     //   end: istEndOfDay.toISOString(),
+        //     // })
 
-            .where(
-              `(
-                (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
-                OR
-                (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
-              )`,
-              {
-                start: istStartOfDay.toISOString(),
-                end: istEndOfDay.toISOString(),
-              },
-            )
+        //     .where(
+        //       `(
+        //         (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
+        //         OR
+        //         (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
+        //       )`,
+        //       {
+        //         start: istStartOfDay.toISOString(),
+        //         end: istEndOfDay.toISOString(),
+        //       },
+        //     )
 
-            .andWhere('transaction.station = :stationId', {
-              stationId: station.id,
-            })
-            .getRawOne();
+        //     .andWhere('transaction.station = :stationId', {
+        //       stationId: station.id,
+        //     })
+        //     .getRawOne();
 
         // Qr query for entry and exit counts
         const qrData = await this.qrRepository
           .createQueryBuilder('qr')
           .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
           .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+          .addSelect('COUNT(*)', 'total_no_of_tickets')
+     
+      .addSelect(
+        `
+        SUM(
+          CASE
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                  ELSE original.amount
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: current + ref
+            WHEN qr.type = 'PENALTY' THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                  ELSE original.amount
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            -- REFUNDED: regular ticket
+            WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+      
+            ELSE qr.amount
+          END
+        )
+        `,
+        'total_amount',
+      )
+     
+     
+      .addSelect(
+        `
+        SUM(
+          CASE 
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref if cash
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                  ELSE 0
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: both current and ref if both are cash
+            WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                  ELSE 0
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
+            WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
+      
+            ELSE 0
+          END
+        )
+        `,
+        'total_cash',
+      )
+      .addSelect(
+        `
+        SUM(
+          CASE 
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref if online
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND (
+                    original.payment_mode ILIKE 'online' OR 
+                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'upi'
+                  ) THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'online' OR 
+                       original.payment_mode ILIKE 'credit_card' OR 
+                       original.payment_mode ILIKE 'upi' THEN original.amount
+                  ELSE 0
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: add current + ref if both are online-like
+            WHEN qr.type = 'PENALTY' AND (
+              qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
+            ) THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND (
+                    original.payment_mode ILIKE 'online' OR 
+                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'upi'
+                  ) THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'online' OR 
+                       original.payment_mode ILIKE 'credit_card' OR 
+                       original.payment_mode ILIKE 'upi' THEN original.amount
+                  ELSE 0
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            WHEN qr.status = 'REFUNDED' AND (
+              qr.payment_mode ILIKE 'online' OR 
+              qr.payment_mode ILIKE 'credit_card' OR 
+              qr.payment_mode ILIKE 'upi'
+            ) THEN qr.admin_fee
+      
+            WHEN qr.payment_mode ILIKE 'online' OR 
+                 qr.payment_mode ILIKE 'credit_card' OR 
+                 qr.payment_mode ILIKE 'upi' THEN qr.amount
+      
+            ELSE 0
+          END
+        )
+        `,
+        'total_online',
+      )
           // .where('qr.qr_date_time BETWEEN :start AND :end', {
           //   start: istStartOfDay.toISOString(),
           //   end: istEndOfDay.toISOString(),
@@ -371,11 +861,11 @@ export class ReportsService {
           station_id: station.id,
           station_name: station.station_name,
           date: formatDate(istStartOfDay),
-          total_cash: total_cash ? Number(total_cash) : 0,
-          total_online: total_online ? Number(total_online) : 0,
-          total_amount: total_amount ? Number(total_amount) : 0,
-          total_no_of_tickets: total_no_of_tickets
-            ? Number(total_no_of_tickets)
+          total_cash: qrData?.total_cash ? Number(qrData.total_cash) : 0,
+          total_online: qrData?.total_online ? Number(qrData.total_online) : 0,
+          total_amount: qrData?.total_amount ? Number(qrData.total_amount) : 0,
+          total_no_of_tickets: qrData?.total_no_of_tickets
+            ? Number(qrData?.total_no_of_tickets)
             : 0,
           total_entry_count: parseInt(qrData.total_entry_count, 10),
           total_exit_count: parseInt(qrData.total_exit_count, 10),
@@ -406,55 +896,207 @@ export class ReportsService {
       const start = new Date(startOfMonthDate);
       const end = new Date(endOfMonthDate);
 
-      const { total_amount, total_no_of_tickets, total_cash, total_online } =
-        await this.transactionRepository
-          .createQueryBuilder('transaction')
-          .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
-          .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
-            'total_cash',
-          )
-          .addSelect(
-            `
-            SUM(CASE 
-                WHEN transaction.payment_mode ILIKE 'online' OR 
-                     transaction.payment_mode ILIKE 'credit_card' OR 
-                     transaction.payment_mode ILIKE 'upi' 
-                THEN transaction.amount 
-                ELSE 0 
-            END)
-            `,
-            'total_online',
-          )
-          .addSelect(
-            'COALESCE(SUM(transaction.no_of_tickets), 0)',
-            'total_no_of_tickets',
-          )
-          // .where('transaction.created_at BETWEEN :start AND :end', {
-          //   start: start.toISOString(),
-          //   end: end.toISOString(),
-          // })
+      // const { total_amount, total_no_of_tickets, total_cash, total_online } =
+      //   await this.transactionRepository
+      //     .createQueryBuilder('transaction')
+      //     .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
+      //     .addSelect(
+      //       "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
+      //       'total_cash',
+      //     )
+      //     .addSelect(
+      //       `
+      //       SUM(CASE 
+      //           WHEN transaction.payment_mode ILIKE 'online' OR 
+      //                transaction.payment_mode ILIKE 'credit_card' OR 
+      //                transaction.payment_mode ILIKE 'upi' 
+      //           THEN transaction.amount 
+      //           ELSE 0 
+      //       END)
+      //       `,
+      //       'total_online',
+      //     )
+      //     .addSelect(
+      //       'COALESCE(SUM(transaction.no_of_tickets), 0)',
+      //       'total_no_of_tickets',
+      //     )
+      //     // .where('transaction.created_at BETWEEN :start AND :end', {
+      //     //   start: start.toISOString(),
+      //     //   end: end.toISOString(),
+      //     // })
 
-          .where(
-            `(
-              (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
-              OR
-              (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
-            )`,
-            { start: start.toISOString(), end: end.toISOString() },
+      //     .where(
+      //       `(
+      //         (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
+      //         OR
+      //         (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
+      //       )`,
+      //       { start: start.toISOString(), end: end.toISOString() },
+      //     )
+
+      //     .getRawOne();
+
+      const qrData = await this.qrRepository
+        .createQueryBuilder('qr')
+        .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
+        .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+        .addSelect('COUNT(*)', 'total_no_of_tickets')
+     
+        .addSelect(
+          `
+          SUM(
+            CASE
+              WHEN qr.status = 'CANCELLED' THEN 0
+        
+              -- DUPLICATE: only ref
+              WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+                SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                    ELSE original.amount
+                  END
+                FROM qr AS original
+                WHERE original.id = qr.ref_ticket_no
+              )
+        
+              -- PENALTY: current + ref
+              WHEN qr.type = 'PENALTY' THEN (
+                (CASE 
+                  WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                  ELSE qr.amount
+                END) +
+                (SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                    ELSE original.amount
+                  END
+                 FROM qr AS original
+                 WHERE original.id = qr.ref_ticket_no)
+              )
+        
+              -- REFUNDED: regular ticket
+              WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+        
+              ELSE qr.amount
+            END
           )
-
-          .getRawOne();
-
-      // const qrData = await this.qrRepository
-      //   .createQueryBuilder('qr')
-      //   .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
-      //   .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-      //   .where('qr.qr_date_time BETWEEN :start AND :end', {
-      //     start: start.toISOString(),
-      //     end: end.toISOString(),
-      //   })
-      //   .getRawOne();
+          `,
+          'total_amount',
+        )
+       
+       
+        .addSelect(
+          `
+          SUM(
+            CASE 
+              WHEN qr.status = 'CANCELLED' THEN 0
+        
+              -- DUPLICATE: only ref if cash
+              WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+                SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                    WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                    ELSE 0
+                  END
+                FROM qr AS original
+                WHERE original.id = qr.ref_ticket_no
+              )
+        
+              -- PENALTY: both current and ref if both are cash
+              WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
+                (CASE 
+                  WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                  ELSE qr.amount
+                END) +
+                (SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                    WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                    ELSE 0
+                  END
+                 FROM qr AS original
+                 WHERE original.id = qr.ref_ticket_no)
+              )
+        
+              WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
+              WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
+        
+              ELSE 0
+            END
+          )
+          `,
+          'total_cash',
+        )
+        .addSelect(
+          `
+          SUM(
+            CASE 
+              WHEN qr.status = 'CANCELLED' THEN 0
+        
+              -- DUPLICATE: only ref if online
+              WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+                SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' AND (
+                      original.payment_mode ILIKE 'online' OR 
+                      original.payment_mode ILIKE 'credit_card' OR 
+                      original.payment_mode ILIKE 'upi'
+                    ) THEN original.admin_fee
+                    WHEN original.payment_mode ILIKE 'online' OR 
+                         original.payment_mode ILIKE 'credit_card' OR 
+                         original.payment_mode ILIKE 'upi' THEN original.amount
+                    ELSE 0
+                  END
+                FROM qr AS original
+                WHERE original.id = qr.ref_ticket_no
+              )
+        
+              -- PENALTY: add current + ref if both are online-like
+              WHEN qr.type = 'PENALTY' AND (
+                qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
+              ) THEN (
+                (CASE 
+                  WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                  ELSE qr.amount
+                END) +
+                (SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' AND (
+                      original.payment_mode ILIKE 'online' OR 
+                      original.payment_mode ILIKE 'credit_card' OR 
+                      original.payment_mode ILIKE 'upi'
+                    ) THEN original.admin_fee
+                    WHEN original.payment_mode ILIKE 'online' OR 
+                         original.payment_mode ILIKE 'credit_card' OR 
+                         original.payment_mode ILIKE 'upi' THEN original.amount
+                    ELSE 0
+                  END
+                 FROM qr AS original
+                 WHERE original.id = qr.ref_ticket_no)
+              )
+        
+              WHEN qr.status = 'REFUNDED' AND (
+                qr.payment_mode ILIKE 'online' OR 
+                qr.payment_mode ILIKE 'credit_card' OR 
+                qr.payment_mode ILIKE 'upi'
+              ) THEN qr.admin_fee
+        
+              WHEN qr.payment_mode ILIKE 'online' OR 
+                   qr.payment_mode ILIKE 'credit_card' OR 
+                   qr.payment_mode ILIKE 'upi' THEN qr.amount
+        
+              ELSE 0
+            END
+          )
+          `,
+          'total_online',
+        )
+        .where('qr.qr_date_time BETWEEN :start AND :end', {
+          start: start.toISOString(),
+          end: end.toISOString(),
+        })
+        .getRawOne();
 
       const formattedMonthYear = `${start
         .toLocaleString('default', { month: 'short' })
@@ -462,11 +1104,11 @@ export class ReportsService {
 
       responseData.push({
         month_year: formattedMonthYear,
-        total_cash: total_cash ? Number(total_cash) : 0,
-        total_online: total_online ? Number(total_online) : 0,
-        total_amount: total_amount ? Number(total_amount) : 0,
-        total_no_of_tickets: total_no_of_tickets
-          ? Number(total_no_of_tickets)
+        total_cash: qrData?.total_cash ? Number(qrData?.total_cash) : 0,
+        total_online: qrData?.total_online ? Number(qrData?.total_online) : 0,
+        total_amount: qrData?.total_amount ? Number(qrData?.total_amount) : 0,
+        total_no_of_tickets: qrData?.total_no_of_tickets
+          ? Number(qrData?.total_no_of_tickets)
           : 0,
         // total_entry_count: parseInt(qrData.total_entry_count, 10),
         // total_exit_count: parseInt(qrData.total_exit_count, 10),
@@ -522,51 +1164,51 @@ export class ReportsService {
     const responseData = [];
 
     for (const currentStation of stations) {
-      const { total_amount, total_no_of_tickets, total_cash, total_online } =
-        await this.transactionRepository
-          .createQueryBuilder('transaction')
-          .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
-          .addSelect(
-            "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
-            'total_cash',
-          )
-          .addSelect(
-            `
-            SUM(CASE 
-                WHEN transaction.payment_mode ILIKE 'online' OR 
-                     transaction.payment_mode ILIKE 'credit_card' OR 
-                     transaction.payment_mode ILIKE 'upi' 
-                THEN transaction.amount 
-                ELSE 0 
-            END)
-            `,
-            'total_online',
-          )
-          .addSelect(
-            'COALESCE(SUM(transaction.no_of_tickets), 0)',
-            'total_no_of_tickets',
-          )
-          // .where('transaction.created_at BETWEEN :start AND :end', {
-          //   start: start.toISOString(),
-          //   end: end.toISOString(),
-          // })
+      // const { total_amount, total_no_of_tickets, total_cash, total_online } =
+      //   await this.transactionRepository
+      //     .createQueryBuilder('transaction')
+      //     .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
+      //     .addSelect(
+      //       "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
+      //       'total_cash',
+      //     )
+      //     .addSelect(
+      //       `
+      //       SUM(CASE 
+      //           WHEN transaction.payment_mode ILIKE 'online' OR 
+      //                transaction.payment_mode ILIKE 'credit_card' OR 
+      //                transaction.payment_mode ILIKE 'upi' 
+      //           THEN transaction.amount 
+      //           ELSE 0 
+      //       END)
+      //       `,
+      //       'total_online',
+      //     )
+      //     .addSelect(
+      //       'COALESCE(SUM(transaction.no_of_tickets), 0)',
+      //       'total_no_of_tickets',
+      //     )
+      //     // .where('transaction.created_at BETWEEN :start AND :end', {
+      //     //   start: start.toISOString(),
+      //     //   end: end.toISOString(),
+      //     // })
 
-          .where(
-            `(
-              (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
-              OR
-              (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
-            )`,
-            {
-              start: start.toISOString(),
-              end: end.toISOString(),
-            },
-          )
+      //     .where(
+      //       `(
+      //         (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
+      //         OR
+      //         (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
+      //       )`,
+      //       {
+      //         start: start.toISOString(),
+      //         end: end.toISOString(),
+      //       },
+      //     )
 
-          .andWhere('transaction.station = :stationId', {
-            stationId: currentStation.id,
-          })
-          .getRawOne();
+      //     .andWhere('transaction.station = :stationId', {
+      //       stationId: currentStation.id,
+      //     })
+      //     .getRawOne();
 
       const qrData = await this.qrRepository
         .createQueryBuilder('qr')
@@ -577,6 +1219,158 @@ export class ReportsService {
         .addSelect(
           'COALESCE(SUM(CASE WHEN qr.destination_id = :stationId THEN qr.exit_count ELSE 0 END), 0)',
           'total_exit_count',
+        )
+        .addSelect('COUNT(*)', 'total_no_of_tickets')
+     
+        .addSelect(
+          `
+          SUM(
+            CASE
+              WHEN qr.status = 'CANCELLED' THEN 0
+        
+              -- DUPLICATE: only ref
+              WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+                SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                    ELSE original.amount
+                  END
+                FROM qr AS original
+                WHERE original.id = qr.ref_ticket_no
+              )
+        
+              -- PENALTY: current + ref
+              WHEN qr.type = 'PENALTY' THEN (
+                (CASE 
+                  WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                  ELSE qr.amount
+                END) +
+                (SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                    ELSE original.amount
+                  END
+                 FROM qr AS original
+                 WHERE original.id = qr.ref_ticket_no)
+              )
+        
+              -- REFUNDED: regular ticket
+              WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+        
+              ELSE qr.amount
+            END
+          )
+          `,
+          'total_amount',
+        )
+       
+       
+        .addSelect(
+          `
+          SUM(
+            CASE 
+              WHEN qr.status = 'CANCELLED' THEN 0
+        
+              -- DUPLICATE: only ref if cash
+              WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+                SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                    WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                    ELSE 0
+                  END
+                FROM qr AS original
+                WHERE original.id = qr.ref_ticket_no
+              )
+        
+              -- PENALTY: both current and ref if both are cash
+              WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
+                (CASE 
+                  WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                  ELSE qr.amount
+                END) +
+                (SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                    WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                    ELSE 0
+                  END
+                 FROM qr AS original
+                 WHERE original.id = qr.ref_ticket_no)
+              )
+        
+              WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
+              WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
+        
+              ELSE 0
+            END
+          )
+          `,
+          'total_cash',
+        )
+        .addSelect(
+          `
+          SUM(
+            CASE 
+              WHEN qr.status = 'CANCELLED' THEN 0
+        
+              -- DUPLICATE: only ref if online
+              WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+                SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' AND (
+                      original.payment_mode ILIKE 'online' OR 
+                      original.payment_mode ILIKE 'credit_card' OR 
+                      original.payment_mode ILIKE 'upi'
+                    ) THEN original.admin_fee
+                    WHEN original.payment_mode ILIKE 'online' OR 
+                         original.payment_mode ILIKE 'credit_card' OR 
+                         original.payment_mode ILIKE 'upi' THEN original.amount
+                    ELSE 0
+                  END
+                FROM qr AS original
+                WHERE original.id = qr.ref_ticket_no
+              )
+        
+              -- PENALTY: add current + ref if both are online-like
+              WHEN qr.type = 'PENALTY' AND (
+                qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
+              ) THEN (
+                (CASE 
+                  WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                  ELSE qr.amount
+                END) +
+                (SELECT 
+                  CASE 
+                    WHEN original.status = 'REFUNDED' AND (
+                      original.payment_mode ILIKE 'online' OR 
+                      original.payment_mode ILIKE 'credit_card' OR 
+                      original.payment_mode ILIKE 'upi'
+                    ) THEN original.admin_fee
+                    WHEN original.payment_mode ILIKE 'online' OR 
+                         original.payment_mode ILIKE 'credit_card' OR 
+                         original.payment_mode ILIKE 'upi' THEN original.amount
+                    ELSE 0
+                  END
+                 FROM qr AS original
+                 WHERE original.id = qr.ref_ticket_no)
+              )
+        
+              WHEN qr.status = 'REFUNDED' AND (
+                qr.payment_mode ILIKE 'online' OR 
+                qr.payment_mode ILIKE 'credit_card' OR 
+                qr.payment_mode ILIKE 'upi'
+              ) THEN qr.admin_fee
+        
+              WHEN qr.payment_mode ILIKE 'online' OR 
+                   qr.payment_mode ILIKE 'credit_card' OR 
+                   qr.payment_mode ILIKE 'upi' THEN qr.amount
+        
+              ELSE 0
+            END
+          )
+          `,
+          'total_online',
         )
         // .where('qr.qr_date_time BETWEEN :start AND :end', {
         //   start: start.toISOString(),
@@ -604,11 +1398,11 @@ export class ReportsService {
       responseData.push({
         station_id: currentStation.id,
         station_name: currentStation.station_name,
-        total_cash: total_cash ? Number(total_cash) : 0,
-        total_online: total_online ? Number(total_online) : 0,
-        total_amount: total_amount ? Number(total_amount) : 0,
-        total_no_of_tickets: total_no_of_tickets
-          ? Number(total_no_of_tickets)
+        total_cash: qrData?.total_cash ? Number(qrData?.total_cash) : 0,
+        total_online: qrData?.total_online ? Number(qrData?.total_online) : 0,
+        total_amount: qrData?.total_amount ? Number(qrData?.total_amount) : 0,
+        total_no_of_tickets: qrData?.total_no_of_tickets
+          ? Number(qrData?.total_no_of_tickets)
           : 0,
         total_entry_count: parseInt(qrData.total_entry_count, 10),
         total_exit_count: parseInt(qrData.total_exit_count, 10),
@@ -665,34 +1459,204 @@ export class ReportsService {
     //   .orderBy('DATE(transaction.created_at)', 'ASC')
     //   .getRawMany();
 
-    const dailyRevenue = await this.transactionRepository
-      .createQueryBuilder('transaction')
-      .select([
-        `COALESCE(
-      DATE(transaction.extended_time), 
-      DATE(transaction.created_at)
-    ) AS date`,
-        'COALESCE(SUM(transaction.amount), 0) AS total_amount',
-        "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
-        `COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'credit_card' 
-      OR transaction.payment_mode ILIKE 'upi' 
-      OR transaction.payment_mode ILIKE 'online' 
-      THEN transaction.amount 
-      ELSE 0 END), 0) AS total_online`,
-      ])
+    // const dailyRevenue = await this.transactionRepository
+    //   .createQueryBuilder('transaction')
+    //   .select([
+    //     `COALESCE(
+    //   DATE(transaction.extended_time), 
+    //   DATE(transaction.created_at)
+    // ) AS date`,
+    //     'COALESCE(SUM(transaction.amount), 0) AS total_amount',
+    //     "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
+    //     `COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'credit_card' 
+    //   OR transaction.payment_mode ILIKE 'upi' 
+    //   OR transaction.payment_mode ILIKE 'online' 
+    //   THEN transaction.amount 
+    //   ELSE 0 END), 0) AS total_online`,
+    //   ])
+    //   .where(
+    //     `(
+    //   (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
+    //   OR
+    //   (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
+    // )`,
+    //     { start: startDate.toISOString(), end: endDate.toISOString() },
+    //   )
+    //   .groupBy(
+    //     `COALESCE(DATE(transaction.extended_time), DATE(transaction.created_at))`,
+    //   )
+    //   .orderBy(
+    //     `COALESCE(DATE(transaction.extended_time), DATE(transaction.created_at))`,
+    //     'ASC',
+    //   )
+    //   .getRawMany();
+    const dailyRevenue = await this.qrRepository
+      .createQueryBuilder('qr')
+      .select(`COALESCE(DATE(qr.extended_time), DATE(qr.created_at))`, 'date')
+      .addSelect(
+        `
+        SUM(
+          CASE
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                  ELSE original.amount
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: current + ref
+            WHEN qr.type = 'PENALTY' THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' THEN original.admin_fee
+                  ELSE original.amount
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            -- REFUNDED: regular ticket
+            WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+      
+            ELSE qr.amount
+          END
+        )
+        `,
+        'total_amount',
+      )
+     
+     
+      .addSelect(
+        `
+        SUM(
+          CASE 
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref if cash
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                  ELSE 0
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: both current and ref if both are cash
+            WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+                  ELSE 0
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
+            WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
+      
+            ELSE 0
+          END
+        )
+        `,
+        'total_cash',
+      )
+      .addSelect(
+        `
+        SUM(
+          CASE 
+            WHEN qr.status = 'CANCELLED' THEN 0
+      
+            -- DUPLICATE: only ref if online
+            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND (
+                    original.payment_mode ILIKE 'online' OR 
+                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'upi'
+                  ) THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'online' OR 
+                       original.payment_mode ILIKE 'credit_card' OR 
+                       original.payment_mode ILIKE 'upi' THEN original.amount
+                  ELSE 0
+                END
+              FROM qr AS original
+              WHERE original.id = qr.ref_ticket_no
+            )
+      
+            -- PENALTY: add current + ref if both are online-like
+            WHEN qr.type = 'PENALTY' AND (
+              qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
+            ) THEN (
+              (CASE 
+                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+                ELSE qr.amount
+              END) +
+              (SELECT 
+                CASE 
+                  WHEN original.status = 'REFUNDED' AND (
+                    original.payment_mode ILIKE 'online' OR 
+                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'upi'
+                  ) THEN original.admin_fee
+                  WHEN original.payment_mode ILIKE 'online' OR 
+                       original.payment_mode ILIKE 'credit_card' OR 
+                       original.payment_mode ILIKE 'upi' THEN original.amount
+                  ELSE 0
+                END
+               FROM qr AS original
+               WHERE original.id = qr.ref_ticket_no)
+            )
+      
+            WHEN qr.status = 'REFUNDED' AND (
+              qr.payment_mode ILIKE 'online' OR 
+              qr.payment_mode ILIKE 'credit_card' OR 
+              qr.payment_mode ILIKE 'upi'
+            ) THEN qr.admin_fee
+      
+            WHEN qr.payment_mode ILIKE 'online' OR 
+                 qr.payment_mode ILIKE 'credit_card' OR 
+                 qr.payment_mode ILIKE 'upi' THEN qr.amount
+      
+            ELSE 0
+          END
+        )
+        `,
+        'total_online',
+      )
+   
       .where(
         `(
-      (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
+      (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :start AND :end)
       OR
-      (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
+      (qr.extended_time IS NULL AND qr.created_at BETWEEN :start AND :end)
     )`,
         { start: startDate.toISOString(), end: endDate.toISOString() },
       )
       .groupBy(
-        `COALESCE(DATE(transaction.extended_time), DATE(transaction.created_at))`,
+        `COALESCE(DATE(qr.extended_time), DATE(qr.created_at))`,
       )
       .orderBy(
-        `COALESCE(DATE(transaction.extended_time), DATE(transaction.created_at))`,
+        `COALESCE(DATE(qr.extended_time), DATE(qr.created_at))`,
         'ASC',
       )
       .getRawMany();

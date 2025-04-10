@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { ReportsController } from './reports.controller';
-import { TransactionQr, Qr, Station, LoginSession, Equipment, Penalty} from '@spot-demo-v2/shared-entities';
+import { TransactionQr, Qr, Station, LoginSession, Equipment, Penalty} from '@spot-demo/shared-entities';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 

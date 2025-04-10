@@ -17,7 +17,7 @@ import {
   Penalty,
   EquipmentStatus,
   SpecialMode
-} from '@spot-demo-v2/shared-entities';
+} from '@spot-demo/shared-entities';
 
 @Module({
   imports: [
