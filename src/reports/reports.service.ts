@@ -241,41 +241,7 @@ export class ReportsService {
         `,
         'total_online',
       )
-      // .addSelect(
-      //   `
-      //   SUM(
-      //     CASE 
-      //       WHEN qr.status = 'CANCELLED' OR qr.type IN ('FREE', 'DUPLICATE') THEN 0
-      //       WHEN qr.status = 'REFUNDED' AND (
-      //         qr.payment_mode ILIKE 'online' OR 
-      //         qr.payment_mode ILIKE 'credit_card' OR 
-      //         qr.payment_mode ILIKE 'upi'
-      //       ) THEN qr.admin_fee
-      //       WHEN qr.payment_mode ILIKE 'online' OR 
-      //            qr.payment_mode ILIKE 'credit_card' OR 
-      //            qr.payment_mode ILIKE 'upi' THEN qr.amount
-      //       ELSE 0
-      //     END
-      //   )
-      //   `,
-      //   'total_online',
-      // )
-      // .addSelect(
-      //   "SUM(CASE WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount ELSE 0 END)",
-      //   'total_cash',
-      // )
-      // .addSelect(
-      //   `
-      //   SUM(CASE
-      //       WHEN qr.payment_mode ILIKE 'online' OR
-      //            qr.payment_mode ILIKE 'credit_card' OR
-      //            qr.payment_mode ILIKE 'upi'
-      //       THEN qr.amount
-      //       ELSE 0
-      //   END)
-      //   `,
-      //   'total_online',
-      // )
+     
       .where(
         `(
           (qr.extended_time IS NOT NULL AND qr.extended_time::date = :currentDate)
@@ -359,7 +325,7 @@ export class ReportsService {
       const nextDay = new Date(day);
       nextDay.setDate(day.getDate() + 1);
       nextDay.setHours(0, 0, 0, -1);
-      console.log(day, nextDay, 'scvsdvcewcv');
+      // console.log(day, nextDay, 'scvsdvcewcv');
 
       // Transaction query for total amount
       // const { total_amount, total_no_of_tickets, total_cash, total_online } =
@@ -410,9 +376,10 @@ export class ReportsService {
       // Qr query for entry and exit counts
       const qrData = await this.qrRepository
         .createQueryBuilder('qr')
-        .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
-        .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-        .addSelect('COUNT(*)', 'total_no_of_tickets')
+        // .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
+        // .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
+       
+        .select('COUNT(*)', 'total_no_of_tickets')
      
       .addSelect(
         `
@@ -584,8 +551,51 @@ export class ReportsService {
         .andWhere('(qr.source_id = :stationId OR qr.source_id = :stationId)', {
           stationId,
         })
+        .setParameter('stationId', stationId)
         .getRawOne();
 
+
+      const qrDataForEntryExit = await this.qrRepository
+        .createQueryBuilder('qr').select(
+          `
+          COALESCE(SUM(
+            CASE 
+              WHEN qr.entry_station_id = :stationId THEN qr.entry_count
+              ELSE 0
+            END
+          ), 0)
+          `,
+          'total_entry_count',
+        )
+        .addSelect(
+          `
+          COALESCE(SUM(
+            CASE 
+              WHEN qr.exit_station_id = :stationId THEN qr.exit_count
+              ELSE 0
+            END
+          ), 0)
+          `,
+          'total_exit_count',
+        )        .where(
+          `(
+            (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :day AND :nextDay)
+            OR
+            (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :day AND :nextDay)
+          )`,
+          {
+            day: day.toISOString(),
+            nextDay: nextDay.toISOString(),
+          },
+        )
+
+        .andWhere('(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)', {
+          stationId,
+        })
+        .setParameter('stationId', stationId)
+        .getRawOne();
+
+        console.log(qrDataForEntryExit, "qrDataForEntryExit")
       past7Days.push({
         date: formatDate(day),
         total_cash: qrData.total_cash ? Number(qrData.total_cash) : 0,
@@ -594,8 +604,8 @@ export class ReportsService {
         total_no_of_tickets: qrData.total_no_of_tickets
           ? Number(qrData.total_no_of_tickets)
           : 0,
-        total_entry_count: parseInt(qrData.total_entry_count, 10),
-        total_exit_count: parseInt(qrData.total_exit_count, 10),
+        total_entry_count: parseInt(qrDataForEntryExit.total_entry_count, 10) || 0 ,
+        total_exit_count: parseInt(qrDataForEntryExit.total_exit_count, 10) || 0,
       });
     }
 
@@ -1212,15 +1222,15 @@ export class ReportsService {
 
       const qrData = await this.qrRepository
         .createQueryBuilder('qr')
-        .select(
-          'COALESCE(SUM(CASE WHEN qr.source_id = :stationId THEN qr.entry_count ELSE 0 END), 0)',
-          'total_entry_count',
-        )
-        .addSelect(
-          'COALESCE(SUM(CASE WHEN qr.destination_id = :stationId THEN qr.exit_count ELSE 0 END), 0)',
-          'total_exit_count',
-        )
-        .addSelect('COUNT(*)', 'total_no_of_tickets')
+        // .select(
+        //   'COALESCE(SUM(CASE WHEN qr.source_id = :stationId THEN qr.entry_count ELSE 0 END), 0)',
+        //   'total_entry_count',
+        // )
+        // .addSelect(
+        //   'COALESCE(SUM(CASE WHEN qr.destination_id = :stationId THEN qr.exit_count ELSE 0 END), 0)',
+        //   'total_exit_count',
+        // )
+        .select('COUNT(*)', 'total_no_of_tickets')
      
         .addSelect(
           `
@@ -1395,6 +1405,48 @@ export class ReportsService {
         )
         .getRawOne();
 
+
+
+      const qrDataForEntryExit = await this.qrRepository
+      .createQueryBuilder('qr').select(
+        `
+        COALESCE(SUM(
+          CASE 
+            WHEN qr.entry_station_id = :stationId THEN qr.entry_count
+            ELSE 0
+          END
+        ), 0)
+        `,
+        'total_entry_count',
+      )
+      .addSelect(
+        `
+        COALESCE(SUM(
+          CASE 
+            WHEN qr.exit_station_id = :stationId THEN qr.exit_count
+            ELSE 0
+          END
+        ), 0)
+        `,
+        'total_exit_count',
+      )   .where(
+        `(
+          (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :start AND :end)
+          OR
+          (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :start AND :end)
+        )`,
+        {
+          start: start.toISOString(),
+          end: end.toISOString(),
+        },
+      )
+
+      .andWhere('(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)', {
+        stationId: currentStation.id,
+      })
+      .setParameter('stationId', currentStation.id)
+      .getRawOne();
+
       responseData.push({
         station_id: currentStation.id,
         station_name: currentStation.station_name,
@@ -1404,8 +1456,8 @@ export class ReportsService {
         total_no_of_tickets: qrData?.total_no_of_tickets
           ? Number(qrData?.total_no_of_tickets)
           : 0,
-        total_entry_count: parseInt(qrData.total_entry_count, 10),
-        total_exit_count: parseInt(qrData.total_exit_count, 10),
+        total_entry_count: parseInt(qrDataForEntryExit.total_entry_count, 10) || 0,
+        total_exit_count: parseInt(qrDataForEntryExit.total_exit_count, 10) || 0,
       });
     }
 
@@ -2590,40 +2642,82 @@ export class ReportsService {
           //   .select('SUM(qr.exit_count)', 'totalExitCount')
           //   .getRawOne();
 
-          const entryCount = await this.qrRepository
-            .createQueryBuilder('qr')
-            .where('qr.source_id = :sourceId', { sourceId: station.id })
-            .andWhere(
-              `(
-      (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
-      OR
-      (qr.extended_time IS NULL AND qr.created_at BETWEEN :fromDate AND :toDate)
-    )`,
-              { fromDate, toDate },
-            )
-            .select('SUM(qr.entry_count)', 'totalEntryCount')
-            .getRawOne();
+    //       const entryCount = await this.qrRepository
+    //         .createQueryBuilder('qr')
+    //         .where('qr.source_id = :sourceId', { sourceId: station.id })
+    //         .andWhere(
+    //           `(
+    //   (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
+    //   OR
+    //   (qr.extended_time IS NULL AND qr.created_at BETWEEN :fromDate AND :toDate)
+    // )`,
+    //           { fromDate, toDate },
+    //         )
+    //         .select('SUM(qr.entry_count)', 'totalEntryCount')
+    //         .getRawOne();
 
-          const exitCount = await this.qrRepository
-            .createQueryBuilder('qr')
-            .where('qr.destination_id = :destinationId', {
-              destinationId: station.id,
-            })
-            .andWhere(
-              `(
-      (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
-      OR
-      (qr.extended_time IS NULL AND qr.created_at BETWEEN :fromDate AND :toDate)
-    )`,
-              { fromDate, toDate },
-            )
-            .select('SUM(qr.exit_count)', 'totalExitCount')
-            .getRawOne();
+    //       const exitCount = await this.qrRepository
+    //         .createQueryBuilder('qr')
+    //         .where('qr.destination_id = :destinationId', {
+    //           destinationId: station.id,
+    //         })
+    //         .andWhere(
+    //           `(
+    //   (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
+    //   OR
+    //   (qr.extended_time IS NULL AND qr.created_at BETWEEN :fromDate AND :toDate)
+    // )`,
+    //           { fromDate, toDate },
+    //         )
+    //         .select('SUM(qr.exit_count)', 'totalExitCount')
+    //         .getRawOne();
+
+    const qrDataForEntryExit = await this.qrRepository
+        .createQueryBuilder('qr').select(
+          `
+          COALESCE(SUM(
+            CASE 
+              WHEN qr.entry_station_id = :stationId THEN qr.entry_count
+              ELSE 0
+            END
+          ), 0)
+          `,
+          'total_entry_count',
+        )
+        .addSelect(
+          `
+          COALESCE(SUM(
+            CASE 
+              WHEN qr.exit_station_id = :stationId THEN qr.exit_count
+              ELSE 0
+            END
+          ), 0)
+          `,
+          'total_exit_count',
+        )        .where(
+          `(
+            (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
+            OR
+            (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :fromDate AND :toDate)
+          )`,
+          {
+            fromDate,
+            toDate,
+          },
+        )
+
+        .andWhere('(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)', {
+          stationId: station?.id,
+        })
+        .setParameter('stationId', station?.id)
+        .getRawOne();
+
+        console.log(qrDataForEntryExit, station?.id, fromDate, toDate)
 
           return {
             ...station,
-            entryCount: entryCount.totalEntryCount || 0,
-            exitCount: exitCount.totalExitCount || 0,
+            entryCount: qrDataForEntryExit.total_entry_count || 0,
+            exitCount: qrDataForEntryExit.total_exit_count || 0,
           };
         }),
       );
@@ -2633,6 +2727,7 @@ export class ReportsService {
         data: stationData,
       };
     } catch (error) {
+      console.log(error)
       return {
         success: false,
         message: 'Failed to retrieve stations and counts',
