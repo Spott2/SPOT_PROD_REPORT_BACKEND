@@ -385,10 +385,10 @@ export class ReportsService {
         `
         SUM(
           CASE
-            WHEN qr.status = 'CANCELLED' THEN 0
+            WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
       
             -- DUPLICATE: only ref
-            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+            WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
               SELECT 
                 CASE 
                   WHEN original.status = 'REFUNDED' THEN original.admin_fee
@@ -396,21 +396,6 @@ export class ReportsService {
                 END
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
-            )
-      
-            -- PENALTY: current + ref
-            WHEN qr.type = 'PENALTY' THEN (
-              (CASE 
-                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-                ELSE qr.amount
-              END) +
-              (SELECT 
-                CASE 
-                  WHEN original.status = 'REFUNDED' THEN original.admin_fee
-                  ELSE original.amount
-                END
-               FROM qr AS original
-               WHERE original.id = qr.ref_ticket_no)
             )
       
             -- REFUNDED: regular ticket
@@ -428,10 +413,10 @@ export class ReportsService {
         `
         SUM(
           CASE 
-            WHEN qr.status = 'CANCELLED' THEN 0
+            WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
       
             -- DUPLICATE: only ref if cash
-            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+            WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
               SELECT 
                 CASE 
                   WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
@@ -440,22 +425,6 @@ export class ReportsService {
                 END
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
-            )
-      
-            -- PENALTY: both current and ref if both are cash
-            WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
-              (CASE 
-                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-                ELSE qr.amount
-              END) +
-              (SELECT 
-                CASE 
-                  WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
-                  WHEN original.payment_mode ILIKE 'cash' THEN original.amount
-                  ELSE 0
-                END
-               FROM qr AS original
-               WHERE original.id = qr.ref_ticket_no)
             )
       
             WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
@@ -471,10 +440,10 @@ export class ReportsService {
         `
         SUM(
           CASE 
-            WHEN qr.status = 'CANCELLED' THEN 0
+            WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
       
             -- DUPLICATE: only ref if online
-            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+            WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
               SELECT 
                 CASE 
                   WHEN original.status = 'REFUNDED' AND (
@@ -489,30 +458,6 @@ export class ReportsService {
                 END
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
-            )
-      
-            -- PENALTY: add current + ref if both are online-like
-            WHEN qr.type = 'PENALTY' AND (
-              qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
-            ) THEN (
-              (CASE 
-                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-                ELSE qr.amount
-              END) +
-              (SELECT 
-                CASE 
-                  WHEN original.status = 'REFUNDED' AND (
-                    original.payment_mode ILIKE 'online' OR 
-                    original.payment_mode ILIKE 'credit_card' OR 
-                    original.payment_mode ILIKE 'upi'
-                  ) THEN original.admin_fee
-                  WHEN original.payment_mode ILIKE 'online' OR 
-                       original.payment_mode ILIKE 'credit_card' OR 
-                       original.payment_mode ILIKE 'upi' THEN original.amount
-                  ELSE 0
-                END
-               FROM qr AS original
-               WHERE original.id = qr.ref_ticket_no)
             )
       
             WHEN qr.status = 'REFUNDED' AND (
@@ -696,10 +641,10 @@ export class ReportsService {
         `
         SUM(
           CASE
-            WHEN qr.status = 'CANCELLED' THEN 0
+            WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
       
             -- DUPLICATE: only ref
-            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+            WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
               SELECT 
                 CASE 
                   WHEN original.status = 'REFUNDED' THEN original.admin_fee
@@ -708,21 +653,7 @@ export class ReportsService {
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
             )
-      
-            -- PENALTY: current + ref
-            WHEN qr.type = 'PENALTY' THEN (
-              (CASE 
-                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-                ELSE qr.amount
-              END) +
-              (SELECT 
-                CASE 
-                  WHEN original.status = 'REFUNDED' THEN original.admin_fee
-                  ELSE original.amount
-                END
-               FROM qr AS original
-               WHERE original.id = qr.ref_ticket_no)
-            )
+    
       
             -- REFUNDED: regular ticket
             WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
@@ -739,10 +670,10 @@ export class ReportsService {
         `
         SUM(
           CASE 
-            WHEN qr.status = 'CANCELLED' THEN 0
+            WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
       
             -- DUPLICATE: only ref if cash
-            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+            WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
               SELECT 
                 CASE 
                   WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
@@ -753,21 +684,7 @@ export class ReportsService {
               WHERE original.id = qr.ref_ticket_no
             )
       
-            -- PENALTY: both current and ref if both are cash
-            WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
-              (CASE 
-                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-                ELSE qr.amount
-              END) +
-              (SELECT 
-                CASE 
-                  WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
-                  WHEN original.payment_mode ILIKE 'cash' THEN original.amount
-                  ELSE 0
-                END
-               FROM qr AS original
-               WHERE original.id = qr.ref_ticket_no)
-            )
+           
       
             WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
             WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
@@ -785,7 +702,7 @@ export class ReportsService {
             WHEN qr.status = 'CANCELLED' THEN 0
       
             -- DUPLICATE: only ref if online
-            WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+            WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
               SELECT 
                 CASE 
                   WHEN original.status = 'REFUNDED' AND (
@@ -802,29 +719,6 @@ export class ReportsService {
               WHERE original.id = qr.ref_ticket_no
             )
       
-            -- PENALTY: add current + ref if both are online-like
-            WHEN qr.type = 'PENALTY' AND (
-              qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
-            ) THEN (
-              (CASE 
-                WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-                ELSE qr.amount
-              END) +
-              (SELECT 
-                CASE 
-                  WHEN original.status = 'REFUNDED' AND (
-                    original.payment_mode ILIKE 'online' OR 
-                    original.payment_mode ILIKE 'credit_card' OR 
-                    original.payment_mode ILIKE 'upi'
-                  ) THEN original.admin_fee
-                  WHEN original.payment_mode ILIKE 'online' OR 
-                       original.payment_mode ILIKE 'credit_card' OR 
-                       original.payment_mode ILIKE 'upi' THEN original.amount
-                  ELSE 0
-                END
-               FROM qr AS original
-               WHERE original.id = qr.ref_ticket_no)
-            )
       
             WHEN qr.status = 'REFUNDED' AND (
               qr.payment_mode ILIKE 'online' OR 
@@ -1236,10 +1130,10 @@ export class ReportsService {
           `
           SUM(
             CASE
-              WHEN qr.status = 'CANCELLED' THEN 0
+              WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
         
               -- DUPLICATE: only ref
-              WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
                 SELECT 
                   CASE 
                     WHEN original.status = 'REFUNDED' THEN original.admin_fee
@@ -1249,20 +1143,7 @@ export class ReportsService {
                 WHERE original.id = qr.ref_ticket_no
               )
         
-              -- PENALTY: current + ref
-              WHEN qr.type = 'PENALTY' THEN (
-                (CASE 
-                  WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-                  ELSE qr.amount
-                END) +
-                (SELECT 
-                  CASE 
-                    WHEN original.status = 'REFUNDED' THEN original.admin_fee
-                    ELSE original.amount
-                  END
-                 FROM qr AS original
-                 WHERE original.id = qr.ref_ticket_no)
-              )
+              
         
               -- REFUNDED: regular ticket
               WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
@@ -1279,10 +1160,10 @@ export class ReportsService {
           `
           SUM(
             CASE 
-              WHEN qr.status = 'CANCELLED' THEN 0
+              WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
         
               -- DUPLICATE: only ref if cash
-              WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
                 SELECT 
                   CASE 
                     WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
@@ -1291,22 +1172,6 @@ export class ReportsService {
                   END
                 FROM qr AS original
                 WHERE original.id = qr.ref_ticket_no
-              )
-        
-              -- PENALTY: both current and ref if both are cash
-              WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
-                (CASE 
-                  WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-                  ELSE qr.amount
-                END) +
-                (SELECT 
-                  CASE 
-                    WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
-                    WHEN original.payment_mode ILIKE 'cash' THEN original.amount
-                    ELSE 0
-                  END
-                 FROM qr AS original
-                 WHERE original.id = qr.ref_ticket_no)
               )
         
               WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
@@ -1322,10 +1187,10 @@ export class ReportsService {
           `
           SUM(
             CASE 
-              WHEN qr.status = 'CANCELLED' THEN 0
+              WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
         
               -- DUPLICATE: only ref if online
-              WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
+              WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
                 SELECT 
                   CASE 
                     WHEN original.status = 'REFUNDED' AND (
@@ -1342,29 +1207,7 @@ export class ReportsService {
                 WHERE original.id = qr.ref_ticket_no
               )
         
-              -- PENALTY: add current + ref if both are online-like
-              WHEN qr.type = 'PENALTY' AND (
-                qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
-              ) THEN (
-                (CASE 
-                  WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-                  ELSE qr.amount
-                END) +
-                (SELECT 
-                  CASE 
-                    WHEN original.status = 'REFUNDED' AND (
-                      original.payment_mode ILIKE 'online' OR 
-                      original.payment_mode ILIKE 'credit_card' OR 
-                      original.payment_mode ILIKE 'upi'
-                    ) THEN original.admin_fee
-                    WHEN original.payment_mode ILIKE 'online' OR 
-                         original.payment_mode ILIKE 'credit_card' OR 
-                         original.payment_mode ILIKE 'upi' THEN original.amount
-                    ELSE 0
-                  END
-                 FROM qr AS original
-                 WHERE original.id = qr.ref_ticket_no)
-              )
+             
         
               WHEN qr.status = 'REFUNDED' AND (
                 qr.payment_mode ILIKE 'online' OR 
