@@ -1103,7 +1103,6 @@ export class ReportsService {
         //   'total_exit_count',
         // )
         .select('COUNT(*)', 'total_no_of_tickets')
-     
         .addSelect(
           `
           SUM(
@@ -1111,17 +1110,7 @@ export class ReportsService {
               WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
         
               -- DUPLICATE: only ref
-              WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
-                SELECT 
-                  CASE 
-                    WHEN original.status = 'REFUNDED' THEN original.admin_fee
-                    ELSE original.amount
-                  END
-                FROM qr AS original
-                WHERE original.id = qr.ref_ticket_no
-              )
-        
-              
+              WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN qr.amount
         
               -- REFUNDED: regular ticket
               WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
@@ -1141,16 +1130,11 @@ export class ReportsService {
               WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
         
               -- DUPLICATE: only ref if cash
-              WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
-                SELECT 
-                  CASE 
-                    WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
-                    WHEN original.payment_mode ILIKE 'cash' THEN original.amount
-                    ELSE 0
-                  END
-                FROM qr AS original
-                WHERE original.id = qr.ref_ticket_no
-              )
+              WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN
+              CASE
+                WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
+                ELSE 0
+              END
         
               WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
               WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
@@ -1168,24 +1152,13 @@ export class ReportsService {
               WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
         
               -- DUPLICATE: only ref if online
-              WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
-                SELECT 
-                  CASE 
-                    WHEN original.status = 'REFUNDED' AND (
-                      original.payment_mode ILIKE 'online' OR 
-                      original.payment_mode ILIKE 'credit_card' OR 
-                      original.payment_mode ILIKE 'upi'
-                    ) THEN original.admin_fee
-                    WHEN original.payment_mode ILIKE 'online' OR 
-                         original.payment_mode ILIKE 'credit_card' OR 
-                         original.payment_mode ILIKE 'upi' THEN original.amount
-                    ELSE 0
-                  END
-                FROM qr AS original
-                WHERE original.id = qr.ref_ticket_no
-              )
-        
-             
+              WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN
+                CASE
+                  WHEN qr.payment_mode ILIKE 'online'
+                    OR qr.payment_mode ILIKE 'credit_card'
+                    OR qr.payment_mode ILIKE 'upi' THEN qr.amount
+                  ELSE 0
+                END
         
               WHEN qr.status = 'REFUNDED' AND (
                 qr.payment_mode ILIKE 'online' OR 
@@ -1203,6 +1176,106 @@ export class ReportsService {
           `,
           'total_online',
         )
+     
+        // .addSelect(
+        //   `
+        //   SUM(
+        //     CASE
+        //       WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
+        
+        //       -- DUPLICATE: only ref
+        //       WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
+        //         SELECT 
+        //           CASE 
+        //             WHEN original.status = 'REFUNDED' THEN original.admin_fee
+        //             ELSE original.amount
+        //           END
+        //         FROM qr AS original
+        //         WHERE original.id = qr.ref_ticket_no
+        //       )
+        
+              
+        
+        //       -- REFUNDED: regular ticket
+        //       WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+        
+        //       ELSE qr.amount
+        //     END
+        //   )
+        //   `,
+        //   'total_amount',
+        // )
+       
+       
+        // .addSelect(
+        //   `
+        //   SUM(
+        //     CASE 
+        //       WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
+        
+        //       -- DUPLICATE: only ref if cash
+        //       WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
+        //         SELECT 
+        //           CASE 
+        //             WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
+        //             WHEN original.payment_mode ILIKE 'cash' THEN original.amount
+        //             ELSE 0
+        //           END
+        //         FROM qr AS original
+        //         WHERE original.id = qr.ref_ticket_no
+        //       )
+        
+        //       WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
+        //       WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
+        
+        //       ELSE 0
+        //     END
+        //   )
+        //   `,
+        //   'total_cash',
+        // )
+        // .addSelect(
+        //   `
+        //   SUM(
+        //     CASE 
+        //       WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
+        
+        //       -- DUPLICATE: only ref if online
+        //       WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
+        //         SELECT 
+        //           CASE 
+        //             WHEN original.status = 'REFUNDED' AND (
+        //               original.payment_mode ILIKE 'online' OR 
+        //               original.payment_mode ILIKE 'credit_card' OR 
+        //               original.payment_mode ILIKE 'upi'
+        //             ) THEN original.admin_fee
+        //             WHEN original.payment_mode ILIKE 'online' OR 
+        //                  original.payment_mode ILIKE 'credit_card' OR 
+        //                  original.payment_mode ILIKE 'upi' THEN original.amount
+        //             ELSE 0
+        //           END
+        //         FROM qr AS original
+        //         WHERE original.id = qr.ref_ticket_no
+        //       )
+        
+             
+        
+        //       WHEN qr.status = 'REFUNDED' AND (
+        //         qr.payment_mode ILIKE 'online' OR 
+        //         qr.payment_mode ILIKE 'credit_card' OR 
+        //         qr.payment_mode ILIKE 'upi'
+        //       ) THEN qr.admin_fee
+        
+        //       WHEN qr.payment_mode ILIKE 'online' OR 
+        //            qr.payment_mode ILIKE 'credit_card' OR 
+        //            qr.payment_mode ILIKE 'upi' THEN qr.amount
+        
+        //       ELSE 0
+        //     END
+        //   )
+        //   `,
+        //   'total_online',
+        // )
         // .where('qr.qr_date_time BETWEEN :start AND :end', {
         //   start: start.toISOString(),
         //   end: end.toISOString(),
