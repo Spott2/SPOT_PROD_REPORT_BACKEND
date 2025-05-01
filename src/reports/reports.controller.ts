@@ -40,15 +40,23 @@ export class ReportsController {
   getDashboardAnalyticsByStationDaily(
     @Body()
     body: {
-      fromDate?: Date | string;
-      toDate?: Date | string;
-      stationId?: number | null;
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      deviceIds?: string[];
+      stations?: number[];
     },
   ) {
     return this.reportsService.getDashboardAnalyticsByStationDaily({
       fromDate: body.fromDate,
       toDate: body.toDate,
-      stationId: body.stationId ?? null,
+      paymentModes: body.paymentModes,
+      transactionTypes: body.transactionTypes,
+      deviceTypes: body.deviceTypes,
+      deviceIds: body.deviceIds,
+      stations: body.stations,
     });
   }
 
@@ -61,7 +69,7 @@ export class ReportsController {
   getDashboardAnalyticsMonthly() {
     return this.reportsService.getDashboardAnalyticsMonthly();
   }
-  
+
   @Post()
   create(@Body() createReportDto: CreateReportDto) {
     return this.reportsService.create(createReportDto);
@@ -105,25 +113,27 @@ export class ReportsController {
   findAllMonthlyPagination(
     @Body()
     body: {
-      fromDate?: Date | string;
-      toDate?: Date | string;
-      orderId?: string;
-      transactionType?: string;
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      deviceIds?: string[];
+      stations?: number[];
       page?: number;
       limit?: number;
-      paymentMode?: string;
-      stationId?: number;
-    },
+    }
   ) {
     return this.reportsService.findAllMonthlyPagination({
       fromDate: body.fromDate,
       toDate: body.toDate,
-      orderId: body.orderId,
-      transactionType: body.transactionType,
+      paymentModes: body.paymentModes,
+      transactionTypes: body.transactionTypes,
+      deviceTypes: body.deviceTypes,
+      deviceIds: body.deviceIds,
+      stations: body.stations,
       page: body.page,
-      limit: body.limit,
-      paymentMode: body.paymentMode,
-      stationId: body.stationId,
+      limit: body.limit
 
     });
   }
@@ -132,22 +142,24 @@ export class ReportsController {
   findAllMonthly(
     @Body()
     body: {
-      fromDate?: Date | string;
-      toDate?: Date | string;
-      orderId?: string;
-      transactionType?: string;
-      paymentMode?: string;
-      stationId?: number;
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      deviceIds?: string[];
+      stations?: number[];
 
     },
   ) {
     return this.reportsService.findAllMonthly({
       fromDate: body.fromDate,
       toDate: body.toDate,
-      orderId: body.orderId,
-      transactionType: body.transactionType,
-      paymentMode: body.paymentMode,
-      stationId: body.stationId,
+      paymentModes: body.paymentModes,
+      transactionTypes: body.transactionTypes,
+      deviceTypes: body.deviceTypes,
+      deviceIds: body.deviceIds,
+      stations: body.stations,
 
     });
   }
@@ -156,27 +168,27 @@ export class ReportsController {
   findAllDailyPagination(
     @Body()
     body: {
-      fromDate?: Date | string;
-      toDate?: Date | string;
-      orderId?: string;
-      transactionType?: string;
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      deviceIds?: string[];
+      stations?: number[];
       page?: number;
       limit?: number;
-      paymentMode?: string;
-      stationId?: number;
-
-    },
+    }
   ) {
     return this.reportsService.findAllDailyPagination({
       fromDate: body.fromDate,
       toDate: body.toDate,
-      orderId: body.orderId,
-      transactionType: body.transactionType,
+      paymentModes: body.paymentModes,
+      transactionTypes: body.transactionTypes,
+      deviceTypes: body.deviceTypes,
+      deviceIds: body.deviceIds,
+      stations: body.stations,
       page: body.page,
-      limit: body.limit,
-      paymentMode: body.paymentMode,
-      stationId: body.stationId,
-
+      limit: body.limit
     });
   }
 
@@ -184,23 +196,23 @@ export class ReportsController {
   findAllDaily(
     @Body()
     body: {
-      fromDate?: Date | string;
-      toDate?: Date | string;
-      orderId?: string;
-      transactionType?: string;
-      paymentMode?: string;
-      stationId?: number;
-
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      deviceIds?: string[];
+      stations?: number[];
     },
   ) {
     return this.reportsService.findAllDaily({
       fromDate: body.fromDate,
       toDate: body.toDate,
-      orderId: body.orderId,
-      transactionType: body.transactionType,
-      paymentMode: body.paymentMode,
-      stationId: body.stationId,
-
+      paymentModes: body.paymentModes,
+      transactionTypes: body.transactionTypes,
+      deviceTypes: body.deviceTypes,
+      deviceIds: body.deviceIds,
+      stations: body.stations,
     });
   }
 
@@ -208,27 +220,27 @@ export class ReportsController {
   findAllHourlyPagination(
     @Body()
     body: {
-      fromDate?: Date | string;
-      toDate?: Date | string;
-      orderId?: string;
-      transactionType?: string;
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      deviceIds?: string[];
+      stations?: number[];
       page?: number;
       limit?: number;
-      paymentMode?: string;
-      stationId?: number;
-
-    },
+    }
   ) {
     return this.reportsService.findAllHourlyPagination({
       fromDate: body.fromDate,
       toDate: body.toDate,
-      orderId: body.orderId,
-      transactionType: body.transactionType,
+      paymentModes: body.paymentModes,
+      transactionTypes: body.transactionTypes,
+      deviceTypes: body.deviceTypes,
+      deviceIds: body.deviceIds,
+      stations: body.stations,
       page: body.page,
-      limit: body.limit,
-      paymentMode: body.paymentMode,
-      stationId: body.stationId,
-
+      limit: body.limit
     });
   }
 
@@ -236,23 +248,23 @@ export class ReportsController {
   findAllHourly(
     @Body()
     body: {
-      fromDate?: Date | string;
-      toDate?: Date | string;
-      orderId?: string;
-      transactionType?: string;
-      paymentMode?: string;
-      stationId?: number;
-
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      deviceIds?: string[];
+      stations?: number[];
     },
   ) {
     return this.reportsService.findAllHourly({
       fromDate: body.fromDate,
       toDate: body.toDate,
-      orderId: body.orderId,
-      transactionType: body.transactionType,
-      paymentMode: body.paymentMode,
-      stationId: body.stationId,
-
+      paymentModes: body.paymentModes,
+      transactionTypes: body.transactionTypes,
+      deviceTypes: body.deviceTypes,
+      deviceIds: body.deviceIds,
+      stations: body.stations,
     });
   }
   @Post('find-all-pagination')
@@ -311,16 +323,99 @@ export class ReportsController {
   async getStations(
     @Body()
     body: {
-      fromDate: Date | string;
-      toDate: Date | string;
-      stationId: number
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      deviceIds?: string[];
+      stations?: number[];
     },
   ) {
     try {
       const fromDate = body.fromDate ? new Date(body.fromDate) : null;
       const toDate = body.toDate ? new Date(body.toDate) : null;
 
-      const result = await this.reportsService.Ridership(fromDate, toDate, body.stationId);
+      const result = await this.reportsService.Ridership({fromDate, toDate, stations:body.stations, deviceIds:body.deviceIds, deviceTypes: body.deviceTypes, paymentModes: body.paymentModes, transactionTypes: body.transactionTypes});
+      return result;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to retrieve station data',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('ridership-v2')
+  async ridershipV2(
+    @Body()
+    body: {
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      deviceIds?: string[];
+      stations?: number[];
+    },
+  ) {
+    try {
+      const fromDate = body.fromDate ? new Date(body.fromDate) : null;
+      const toDate = body.toDate ? new Date(body.toDate) : null;
+
+      const result = await this.reportsService.Ridershipv2({fromDate, toDate, stations:body.stations, deviceIds:body.deviceIds, deviceTypes: body.deviceTypes, paymentModes: body.paymentModes, transactionTypes: body.transactionTypes});
+      return result;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to retrieve station data',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('matrix-report')
+  async matrixReport(
+    @Body()
+    body: {
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      stations?: number[];
+    },
+  ) {
+    try {
+      const fromDate = body.fromDate ? new Date(body.fromDate) : null;
+      const toDate = body.toDate ? new Date(body.toDate) : null;
+
+      const result = await this.reportsService.matrixReport({fromDate, toDate, stations:body.stations, deviceTypes: body.deviceTypes, paymentModes: body.paymentModes, transactionTypes: body.transactionTypes});
+      return result;
+    } catch (error) {
+      throw new HttpException(
+        'Failed to retrieve station data',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('matrix-report-amount')
+  async matrixReportAmount(
+    @Body()
+    body: {
+      fromDate?: string | Date;
+      toDate?: string | Date;
+      paymentModes?: string[];
+      transactionTypes?: string[];
+      deviceTypes?: string[];
+      stations?: number[];
+    },
+  ) {
+    try {
+      const fromDate = body.fromDate ? new Date(body.fromDate) : null;
+      const toDate = body.toDate ? new Date(body.toDate) : null;
+
+      const result = await this.reportsService.matrixReportAmount({fromDate, toDate, stations:body.stations, deviceTypes: body.deviceTypes, paymentModes: body.paymentModes, transactionTypes: body.transactionTypes});
       return result;
     } catch (error) {
       throw new HttpException(
@@ -331,18 +426,33 @@ export class ReportsController {
   }
 
   @Post('tom-shift-report')
-  tomShiftReport(@Body() body: { date: string; station: string }) {
-    return this.reportsService.tomShiftReport(body.date, body.station);
+  tomShiftReport(@Body() body: {   date?: string | Date;
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[]; }) {
+    return this.reportsService.tomShiftReport({
+      date: body.date,
+      deviceTypes: body.deviceTypes,
+      deviceIds: body.deviceIds,
+      stations: body.stations,
+    });
   }
 
   @Post('report-by-station-operator')
   getCollectionReportByStationOperator(
-    @Body() body: { date: string; station: string },
+    @Body() body: { 
+      date?: string | Date;
+      deviceTypes?: string[];
+      deviceIds?: string[];
+      stations?: number[];
+     },
   ) {
-    return this.reportsService.getCollectionReportByStationOperator(
-      body.date,
-      body?.station,
-    );
+    return this.reportsService.getCollectionReportByStationOperator({
+      date: body.date,
+      deviceTypes: body.deviceTypes,
+      deviceIds: body.deviceIds,
+      stations: body.stations,
+  });
   }
 
   @Post('report-by-station')
@@ -370,8 +480,18 @@ export class ReportsController {
   }
 
   @Post('find-shift-report')
-  findShiftReport(@Body() body: { fromDate: Date, endDate: Date, station: string }) {
-    return this.reportsService.findShiftReport(body);
+  findShiftReport(@Body() body: {  fromDate?: string | Date;
+    endDate?: string | Date;
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[]; }) {
+    return this.reportsService.findShiftReport({
+      fromDate: body.fromDate,
+      endDate: body.endDate,
+      deviceTypes: body.deviceTypes,
+      deviceIds: body.deviceIds,
+      stations: body.stations,
+  });
   }
 
   @Get(':id')

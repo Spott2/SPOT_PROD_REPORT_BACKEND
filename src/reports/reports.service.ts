@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, In } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Equipment,
@@ -62,12 +62,12 @@ export class ReportsService {
     //   )
     //   .addSelect(
     //     `
-    //     SUM(CASE 
-    //         WHEN transaction.payment_mode ILIKE 'online' OR 
-    //              transaction.payment_mode ILIKE 'credit_card' OR 
-    //              transaction.payment_mode ILIKE 'upi' 
-    //         THEN transaction.amount 
-    //         ELSE 0 
+    //     SUM(CASE
+    //         WHEN transaction.payment_mode ILIKE 'online' OR
+    //              transaction.payment_mode ILIKE 'credit_card' OR
+    //              transaction.payment_mode ILIKE 'upi'
+    //         THEN transaction.amount
+    //         ELSE 0
     //     END)
     //     `,
     //     'total_online',
@@ -90,60 +90,59 @@ export class ReportsService {
       .addSelect('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
       .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
       .addSelect('COUNT(*)', 'total_no_of_tickets')
-     
+
       .addSelect(
         `
         SUM(
           CASE
             WHEN qr.status = 'CANCELLED' THEN 0
-      
+
             -- DUPLICATE: only ref
             WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
-              SELECT 
-                CASE 
+              SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' THEN original.admin_fee
                   ELSE original.amount
                 END
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
             )
-      
+
             -- PENALTY: current + ref
             WHEN qr.type = 'PENALTY' THEN (
-              (CASE 
+              (CASE
                 WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
                 ELSE qr.amount
               END) +
-              (SELECT 
-                CASE 
+              (SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' THEN original.admin_fee
                   ELSE original.amount
                 END
                FROM qr AS original
                WHERE original.id = qr.ref_ticket_no)
             )
-      
+
             -- REFUNDED: regular ticket
             WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-      
+
             ELSE qr.amount
           END
         )
         `,
         'total_amount',
       )
-     
-     
+
       .addSelect(
         `
         SUM(
-          CASE 
+          CASE
             WHEN qr.status = 'CANCELLED' THEN 0
-      
+
             -- DUPLICATE: only ref if cash
             WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
-              SELECT 
-                CASE 
+              SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
                   WHEN original.payment_mode ILIKE 'cash' THEN original.amount
                   ELSE 0
@@ -151,15 +150,15 @@ export class ReportsService {
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
             )
-      
+
             -- PENALTY: both current and ref if both are cash
             WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
-              (CASE 
+              (CASE
                 WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
                 ELSE qr.amount
               END) +
-              (SELECT 
-                CASE 
+              (SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
                   WHEN original.payment_mode ILIKE 'cash' THEN original.amount
                   ELSE 0
@@ -167,10 +166,10 @@ export class ReportsService {
                FROM qr AS original
                WHERE original.id = qr.ref_ticket_no)
             )
-      
+
             WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
             WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
-      
+
             ELSE 0
           END
         )
@@ -180,68 +179,68 @@ export class ReportsService {
       .addSelect(
         `
         SUM(
-          CASE 
+          CASE
             WHEN qr.status = 'CANCELLED' THEN 0
-      
+
             -- DUPLICATE: only ref if online
             WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
-              SELECT 
-                CASE 
+              SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' AND (
-                    original.payment_mode ILIKE 'online' OR 
-                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'online' OR
+                    original.payment_mode ILIKE 'credit_card' OR
                     original.payment_mode ILIKE 'upi'
                   ) THEN original.admin_fee
-                  WHEN original.payment_mode ILIKE 'online' OR 
-                       original.payment_mode ILIKE 'credit_card' OR 
+                  WHEN original.payment_mode ILIKE 'online' OR
+                       original.payment_mode ILIKE 'credit_card' OR
                        original.payment_mode ILIKE 'upi' THEN original.amount
                   ELSE 0
                 END
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
             )
-      
+
             -- PENALTY: add current + ref if both are online-like
             WHEN qr.type = 'PENALTY' AND (
               qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
             ) THEN (
-              (CASE 
+              (CASE
                 WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
                 ELSE qr.amount
               END) +
-              (SELECT 
-                CASE 
+              (SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' AND (
-                    original.payment_mode ILIKE 'online' OR 
-                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'online' OR
+                    original.payment_mode ILIKE 'credit_card' OR
                     original.payment_mode ILIKE 'upi'
                   ) THEN original.admin_fee
-                  WHEN original.payment_mode ILIKE 'online' OR 
-                       original.payment_mode ILIKE 'credit_card' OR 
+                  WHEN original.payment_mode ILIKE 'online' OR
+                       original.payment_mode ILIKE 'credit_card' OR
                        original.payment_mode ILIKE 'upi' THEN original.amount
                   ELSE 0
                 END
                FROM qr AS original
                WHERE original.id = qr.ref_ticket_no)
             )
-      
+
             WHEN qr.status = 'REFUNDED' AND (
-              qr.payment_mode ILIKE 'online' OR 
-              qr.payment_mode ILIKE 'credit_card' OR 
+              qr.payment_mode ILIKE 'online' OR
+              qr.payment_mode ILIKE 'credit_card' OR
               qr.payment_mode ILIKE 'upi'
             ) THEN qr.admin_fee
-      
-            WHEN qr.payment_mode ILIKE 'online' OR 
-                 qr.payment_mode ILIKE 'credit_card' OR 
+
+            WHEN qr.payment_mode ILIKE 'online' OR
+                 qr.payment_mode ILIKE 'credit_card' OR
                  qr.payment_mode ILIKE 'upi' THEN qr.amount
-      
+
             ELSE 0
           END
         )
         `,
         'total_online',
       )
-     
+
       .where(
         `(
           (qr.extended_time IS NOT NULL AND qr.extended_time::date = :currentDate)
@@ -254,12 +253,10 @@ export class ReportsService {
       .groupBy('qr.source_id')
       .getRawMany();
 
-      console.log(qrData, "transactionData")
+    console.log(qrData, 'transactionData');
 
     const dashboardAnalytics = stations.map((station) => {
-      const transaction = qrData.find(
-        (txn) => txn.station_id === station.id,
-      );
+      const transaction = qrData.find((txn) => txn.station_id === station.id);
 
       const entryExitCounts = qrData.find(
         (qr) => parseInt(qr.station_id, 10) === station.id,
@@ -338,12 +335,12 @@ export class ReportsService {
       //     )
       //     .addSelect(
       //       `
-      //       SUM(CASE 
-      //           WHEN transaction.payment_mode ILIKE 'online' OR 
-      //                transaction.payment_mode ILIKE 'credit_card' OR 
-      //                transaction.payment_mode ILIKE 'upi' 
-      //           THEN transaction.amount 
-      //           ELSE 0 
+      //       SUM(CASE
+      //           WHEN transaction.payment_mode ILIKE 'online' OR
+      //                transaction.payment_mode ILIKE 'credit_card' OR
+      //                transaction.payment_mode ILIKE 'upi'
+      //           THEN transaction.amount
+      //           ELSE 0
       //       END)
       //       `,
       //       'total_online',
@@ -378,57 +375,56 @@ export class ReportsService {
         .createQueryBuilder('qr')
         // .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
         // .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-       
+
         .select('COUNT(*)', 'total_no_of_tickets')
-     
-      .addSelect(
-        `
+
+        .addSelect(
+          `
         SUM(
           CASE
             WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-      
+
             -- DUPLICATE: only ref
             WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN qr.amount
-      
+
             -- REFUNDED: regular ticket
             WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-      
+
             ELSE qr.amount
           END
         )
         `,
-        'total_amount',
-      )
-     
-     
-      .addSelect(
-        `
+          'total_amount',
+        )
+
+        .addSelect(
+          `
         SUM(
-          CASE 
+          CASE
             WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-      
+
             -- DUPLICATE: only ref if cash
             WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN
             CASE
               WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
               ELSE 0
             END
-      
+
             WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
             WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
-      
+
             ELSE 0
           END
         )
         `,
-        'total_cash',
-      )
-      .addSelect(
-        `
+          'total_cash',
+        )
+        .addSelect(
+          `
         SUM(
-          CASE 
+          CASE
             WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-      
+
             -- DUPLICATE: only ref if online
             WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN
               CASE
@@ -437,23 +433,23 @@ export class ReportsService {
                   OR qr.payment_mode ILIKE 'upi' THEN qr.amount
                 ELSE 0
               END
-      
+
             WHEN qr.status = 'REFUNDED' AND (
-              qr.payment_mode ILIKE 'online' OR 
-              qr.payment_mode ILIKE 'credit_card' OR 
+              qr.payment_mode ILIKE 'online' OR
+              qr.payment_mode ILIKE 'credit_card' OR
               qr.payment_mode ILIKE 'upi'
             ) THEN qr.admin_fee
-      
-            WHEN qr.payment_mode ILIKE 'online' OR 
-                 qr.payment_mode ILIKE 'credit_card' OR 
+
+            WHEN qr.payment_mode ILIKE 'online' OR
+                 qr.payment_mode ILIKE 'credit_card' OR
                  qr.payment_mode ILIKE 'upi' THEN qr.amount
-      
+
             ELSE 0
           END
         )
         `,
-        'total_online',
-      )
+          'total_online',
+        )
         // .where('qr.qr_date_time BETWEEN :day AND :nextDay', {
         //   day: day.toISOString(),
         //   nextDay: nextDay.toISOString(),
@@ -477,12 +473,12 @@ export class ReportsService {
         .setParameter('stationId', stationId)
         .getRawOne();
 
-
       const qrDataForEntryExit = await this.qrRepository
-        .createQueryBuilder('qr').select(
+        .createQueryBuilder('qr')
+        .select(
           `
           COALESCE(SUM(
-            CASE 
+            CASE
               WHEN qr.entry_station_id = :stationId THEN qr.entry_count
               ELSE 0
             END
@@ -493,14 +489,15 @@ export class ReportsService {
         .addSelect(
           `
           COALESCE(SUM(
-            CASE 
+            CASE
               WHEN qr.exit_station_id = :stationId THEN qr.exit_count
               ELSE 0
             END
           ), 0)
           `,
           'total_exit_count',
-        )        .where(
+        )
+        .where(
           `(
             (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :day AND :nextDay)
             OR
@@ -512,13 +509,16 @@ export class ReportsService {
           },
         )
 
-        .andWhere('(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)', {
-          stationId,
-        })
+        .andWhere(
+          '(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)',
+          {
+            stationId,
+          },
+        )
         .setParameter('stationId', stationId)
         .getRawOne();
 
-        console.log(qrDataForEntryExit, "qrDataForEntryExit")
+      console.log(qrDataForEntryExit, 'qrDataForEntryExit');
       past7Days.push({
         date: formatDate(day),
         total_cash: qrData.total_cash ? Number(qrData.total_cash) : 0,
@@ -527,8 +527,10 @@ export class ReportsService {
         total_no_of_tickets: qrData.total_no_of_tickets
           ? Number(qrData.total_no_of_tickets)
           : 0,
-        total_entry_count: parseInt(qrDataForEntryExit.total_entry_count, 10) || 0 ,
-        total_exit_count: parseInt(qrDataForEntryExit.total_exit_count, 10) || 0,
+        total_entry_count:
+          parseInt(qrDataForEntryExit.total_entry_count, 10) || 0,
+        total_exit_count:
+          parseInt(qrDataForEntryExit.total_exit_count, 10) || 0,
       });
     }
 
@@ -572,12 +574,12 @@ export class ReportsService {
         //     )
         //     .addSelect(
         //       `
-        //       SUM(CASE 
-        //           WHEN transaction.payment_mode ILIKE 'online' OR 
-        //                transaction.payment_mode ILIKE 'credit_card' OR 
-        //                transaction.payment_mode ILIKE 'upi' 
-        //           THEN transaction.amount 
-        //           ELSE 0 
+        //       SUM(CASE
+        //           WHEN transaction.payment_mode ILIKE 'online' OR
+        //                transaction.payment_mode ILIKE 'credit_card' OR
+        //                transaction.payment_mode ILIKE 'upi'
+        //           THEN transaction.amount
+        //           ELSE 0
         //       END)
         //       `,
         //       'total_online',
@@ -614,46 +616,45 @@ export class ReportsService {
           .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
           .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
           .addSelect('COUNT(*)', 'total_no_of_tickets')
-     
-      .addSelect(
-        `
+
+          .addSelect(
+            `
         SUM(
           CASE
             WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-      
+
             -- DUPLICATE: only ref
             WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
-              SELECT 
-                CASE 
+              SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' THEN original.admin_fee
                   ELSE original.amount
                 END
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
             )
-    
-      
+
+
             -- REFUNDED: regular ticket
             WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-      
+
             ELSE qr.amount
           END
         )
         `,
-        'total_amount',
-      )
-     
-     
-      .addSelect(
-        `
+            'total_amount',
+          )
+
+          .addSelect(
+            `
         SUM(
-          CASE 
+          CASE
             WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-      
+
             -- DUPLICATE: only ref if cash
             WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
-              SELECT 
-                CASE 
+              SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
                   WHEN original.payment_mode ILIKE 'cash' THEN original.amount
                   ELSE 0
@@ -661,59 +662,59 @@ export class ReportsService {
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
             )
-      
-           
-      
+
+
+
             WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
             WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
-      
+
             ELSE 0
           END
         )
         `,
-        'total_cash',
-      )
-      .addSelect(
-        `
+            'total_cash',
+          )
+          .addSelect(
+            `
         SUM(
-          CASE 
+          CASE
             WHEN qr.status = 'CANCELLED' THEN 0
-      
+
             -- DUPLICATE: only ref if online
             WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
-              SELECT 
-                CASE 
+              SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' AND (
-                    original.payment_mode ILIKE 'online' OR 
-                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'online' OR
+                    original.payment_mode ILIKE 'credit_card' OR
                     original.payment_mode ILIKE 'upi'
                   ) THEN original.admin_fee
-                  WHEN original.payment_mode ILIKE 'online' OR 
-                       original.payment_mode ILIKE 'credit_card' OR 
+                  WHEN original.payment_mode ILIKE 'online' OR
+                       original.payment_mode ILIKE 'credit_card' OR
                        original.payment_mode ILIKE 'upi' THEN original.amount
                   ELSE 0
                 END
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
             )
-      
-      
+
+
             WHEN qr.status = 'REFUNDED' AND (
-              qr.payment_mode ILIKE 'online' OR 
-              qr.payment_mode ILIKE 'credit_card' OR 
+              qr.payment_mode ILIKE 'online' OR
+              qr.payment_mode ILIKE 'credit_card' OR
               qr.payment_mode ILIKE 'upi'
             ) THEN qr.admin_fee
-      
-            WHEN qr.payment_mode ILIKE 'online' OR 
-                 qr.payment_mode ILIKE 'credit_card' OR 
+
+            WHEN qr.payment_mode ILIKE 'online' OR
+                 qr.payment_mode ILIKE 'credit_card' OR
                  qr.payment_mode ILIKE 'upi' THEN qr.amount
-      
+
             ELSE 0
           END
         )
         `,
-        'total_online',
-      )
+            'total_online',
+          )
           // .where('qr.qr_date_time BETWEEN :start AND :end', {
           //   start: istStartOfDay.toISOString(),
           //   end: istEndOfDay.toISOString(),
@@ -788,12 +789,12 @@ export class ReportsService {
       //     )
       //     .addSelect(
       //       `
-      //       SUM(CASE 
-      //           WHEN transaction.payment_mode ILIKE 'online' OR 
-      //                transaction.payment_mode ILIKE 'credit_card' OR 
-      //                transaction.payment_mode ILIKE 'upi' 
-      //           THEN transaction.amount 
-      //           ELSE 0 
+      //       SUM(CASE
+      //           WHEN transaction.payment_mode ILIKE 'online' OR
+      //                transaction.payment_mode ILIKE 'credit_card' OR
+      //                transaction.payment_mode ILIKE 'upi'
+      //           THEN transaction.amount
+      //           ELSE 0
       //       END)
       //       `,
       //       'total_online',
@@ -823,60 +824,59 @@ export class ReportsService {
         .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
         .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
         .addSelect('COUNT(*)', 'total_no_of_tickets')
-     
+
         .addSelect(
           `
           SUM(
             CASE
               WHEN qr.status = 'CANCELLED' THEN 0
-        
+
               -- DUPLICATE: only ref
               WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
-                SELECT 
-                  CASE 
+                SELECT
+                  CASE
                     WHEN original.status = 'REFUNDED' THEN original.admin_fee
                     ELSE original.amount
                   END
                 FROM qr AS original
                 WHERE original.id = qr.ref_ticket_no
               )
-        
+
               -- PENALTY: current + ref
               WHEN qr.type = 'PENALTY' THEN (
-                (CASE 
+                (CASE
                   WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
                   ELSE qr.amount
                 END) +
-                (SELECT 
-                  CASE 
+                (SELECT
+                  CASE
                     WHEN original.status = 'REFUNDED' THEN original.admin_fee
                     ELSE original.amount
                   END
                  FROM qr AS original
                  WHERE original.id = qr.ref_ticket_no)
               )
-        
+
               -- REFUNDED: regular ticket
               WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-        
+
               ELSE qr.amount
             END
           )
           `,
           'total_amount',
         )
-       
-       
+
         .addSelect(
           `
           SUM(
-            CASE 
+            CASE
               WHEN qr.status = 'CANCELLED' THEN 0
-        
+
               -- DUPLICATE: only ref if cash
               WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
-                SELECT 
-                  CASE 
+                SELECT
+                  CASE
                     WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
                     WHEN original.payment_mode ILIKE 'cash' THEN original.amount
                     ELSE 0
@@ -884,15 +884,15 @@ export class ReportsService {
                 FROM qr AS original
                 WHERE original.id = qr.ref_ticket_no
               )
-        
+
               -- PENALTY: both current and ref if both are cash
               WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
-                (CASE 
+                (CASE
                   WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
                   ELSE qr.amount
                 END) +
-                (SELECT 
-                  CASE 
+                (SELECT
+                  CASE
                     WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
                     WHEN original.payment_mode ILIKE 'cash' THEN original.amount
                     ELSE 0
@@ -900,10 +900,10 @@ export class ReportsService {
                  FROM qr AS original
                  WHERE original.id = qr.ref_ticket_no)
               )
-        
+
               WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
               WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
-        
+
               ELSE 0
             END
           )
@@ -913,61 +913,61 @@ export class ReportsService {
         .addSelect(
           `
           SUM(
-            CASE 
+            CASE
               WHEN qr.status = 'CANCELLED' THEN 0
-        
+
               -- DUPLICATE: only ref if online
               WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
-                SELECT 
-                  CASE 
+                SELECT
+                  CASE
                     WHEN original.status = 'REFUNDED' AND (
-                      original.payment_mode ILIKE 'online' OR 
-                      original.payment_mode ILIKE 'credit_card' OR 
+                      original.payment_mode ILIKE 'online' OR
+                      original.payment_mode ILIKE 'credit_card' OR
                       original.payment_mode ILIKE 'upi'
                     ) THEN original.admin_fee
-                    WHEN original.payment_mode ILIKE 'online' OR 
-                         original.payment_mode ILIKE 'credit_card' OR 
+                    WHEN original.payment_mode ILIKE 'online' OR
+                         original.payment_mode ILIKE 'credit_card' OR
                          original.payment_mode ILIKE 'upi' THEN original.amount
                     ELSE 0
                   END
                 FROM qr AS original
                 WHERE original.id = qr.ref_ticket_no
               )
-        
+
               -- PENALTY: add current + ref if both are online-like
               WHEN qr.type = 'PENALTY' AND (
                 qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
               ) THEN (
-                (CASE 
+                (CASE
                   WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
                   ELSE qr.amount
                 END) +
-                (SELECT 
-                  CASE 
+                (SELECT
+                  CASE
                     WHEN original.status = 'REFUNDED' AND (
-                      original.payment_mode ILIKE 'online' OR 
-                      original.payment_mode ILIKE 'credit_card' OR 
+                      original.payment_mode ILIKE 'online' OR
+                      original.payment_mode ILIKE 'credit_card' OR
                       original.payment_mode ILIKE 'upi'
                     ) THEN original.admin_fee
-                    WHEN original.payment_mode ILIKE 'online' OR 
-                         original.payment_mode ILIKE 'credit_card' OR 
+                    WHEN original.payment_mode ILIKE 'online' OR
+                         original.payment_mode ILIKE 'credit_card' OR
                          original.payment_mode ILIKE 'upi' THEN original.amount
                     ELSE 0
                   END
                  FROM qr AS original
                  WHERE original.id = qr.ref_ticket_no)
               )
-        
+
               WHEN qr.status = 'REFUNDED' AND (
-                qr.payment_mode ILIKE 'online' OR 
-                qr.payment_mode ILIKE 'credit_card' OR 
+                qr.payment_mode ILIKE 'online' OR
+                qr.payment_mode ILIKE 'credit_card' OR
                 qr.payment_mode ILIKE 'upi'
               ) THEN qr.admin_fee
-        
-              WHEN qr.payment_mode ILIKE 'online' OR 
-                   qr.payment_mode ILIKE 'credit_card' OR 
+
+              WHEN qr.payment_mode ILIKE 'online' OR
+                   qr.payment_mode ILIKE 'credit_card' OR
                    qr.payment_mode ILIKE 'upi' THEN qr.amount
-        
+
               ELSE 0
             END
           )
@@ -1005,18 +1005,34 @@ export class ReportsService {
     };
   }
 
-  async getDashboardAnalyticsByStationDaily(params: {
+  async getDashboardAnalyticsByStationDaily(queryParams: {
     fromDate?: Date | string;
     toDate?: Date | string;
-    stationId?: number | null;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[];
+    page?: number;
+    limit?: number;
   }) {
-    const { fromDate, toDate, stationId } = params;
+    const {
+      fromDate,
+      toDate,
+      paymentModes,
+      transactionTypes,
+      deviceTypes,
+      deviceIds,
+      stations: stationIds,
+      page,
+      limit,
+    } = queryParams;
 
     let stations: any[] = [];
 
-    if (stationId) {
+    if (stationIds && stationIds.length > 0) {
       stations = await this.stationRepository.find({
-        where: { id: stationId },
+        where: { id: In(stationIds) },
         select: ['id', 'station_name'],
         order: {
           id: 'ASC',
@@ -1046,99 +1062,45 @@ export class ReportsService {
     const responseData = [];
 
     for (const currentStation of stations) {
-      // const { total_amount, total_no_of_tickets, total_cash, total_online } =
-      //   await this.transactionRepository
-      //     .createQueryBuilder('transaction')
-      //     .select('COALESCE(SUM(transaction.amount), 0)', 'total_amount')
-      //     .addSelect(
-      //       "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0)",
-      //       'total_cash',
-      //     )
-      //     .addSelect(
-      //       `
-      //       SUM(CASE 
-      //           WHEN transaction.payment_mode ILIKE 'online' OR 
-      //                transaction.payment_mode ILIKE 'credit_card' OR 
-      //                transaction.payment_mode ILIKE 'upi' 
-      //           THEN transaction.amount 
-      //           ELSE 0 
-      //       END)
-      //       `,
-      //       'total_online',
-      //     )
-      //     .addSelect(
-      //       'COALESCE(SUM(transaction.no_of_tickets), 0)',
-      //       'total_no_of_tickets',
-      //     )
-      //     // .where('transaction.created_at BETWEEN :start AND :end', {
-      //     //   start: start.toISOString(),
-      //     //   end: end.toISOString(),
-      //     // })
-
-      //     .where(
-      //       `(
-      //         (transaction.extended_time IS NOT NULL AND transaction.extended_time BETWEEN :start AND :end)
-      //         OR
-      //         (transaction.extended_time IS NULL AND transaction.created_at BETWEEN :start AND :end)
-      //       )`,
-      //       {
-      //         start: start.toISOString(),
-      //         end: end.toISOString(),
-      //       },
-      //     )
-
-      //     .andWhere('transaction.station = :stationId', {
-      //       stationId: currentStation.id,
-      //     })
-      //     .getRawOne();
-
-      const qrData = await this.qrRepository
+      const qrAmountQuery = this.qrRepository
         .createQueryBuilder('qr')
-        // .select(
-        //   'COALESCE(SUM(CASE WHEN qr.source_id = :stationId THEN qr.entry_count ELSE 0 END), 0)',
-        //   'total_entry_count',
-        // )
-        // .addSelect(
-        //   'COALESCE(SUM(CASE WHEN qr.destination_id = :stationId THEN qr.exit_count ELSE 0 END), 0)',
-        //   'total_exit_count',
-        // )
+        .leftJoinAndSelect('qr.transaction', 'transaction')
         .select('COUNT(*)', 'total_no_of_tickets')
         .addSelect(
           `
           SUM(
             CASE
               WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-        
+
               -- DUPLICATE: only ref
               WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN qr.amount
-        
+
               -- REFUNDED: regular ticket
               WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-        
+
               ELSE qr.amount
             END
           )
           `,
           'total_amount',
         )
-       
-       
+
         .addSelect(
           `
           SUM(
-            CASE 
+            CASE
               WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-        
+
               -- DUPLICATE: only ref if cash
               WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN
               CASE
                 WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
                 ELSE 0
               END
-        
+
               WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
               WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
-        
+
               ELSE 0
             END
           )
@@ -1148,9 +1110,9 @@ export class ReportsService {
         .addSelect(
           `
           SUM(
-            CASE 
+            CASE
               WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-        
+
               -- DUPLICATE: only ref if online
               WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN
                 CASE
@@ -1159,128 +1121,23 @@ export class ReportsService {
                     OR qr.payment_mode ILIKE 'upi' THEN qr.amount
                   ELSE 0
                 END
-        
+
               WHEN qr.status = 'REFUNDED' AND (
-                qr.payment_mode ILIKE 'online' OR 
-                qr.payment_mode ILIKE 'credit_card' OR 
+                qr.payment_mode ILIKE 'online' OR
+                qr.payment_mode ILIKE 'credit_card' OR
                 qr.payment_mode ILIKE 'upi'
               ) THEN qr.admin_fee
-        
-              WHEN qr.payment_mode ILIKE 'online' OR 
-                   qr.payment_mode ILIKE 'credit_card' OR 
+
+              WHEN qr.payment_mode ILIKE 'online' OR
+                   qr.payment_mode ILIKE 'credit_card' OR
                    qr.payment_mode ILIKE 'upi' THEN qr.amount
-        
+
               ELSE 0
             END
           )
           `,
           'total_online',
         )
-     
-        // .addSelect(
-        //   `
-        //   SUM(
-        //     CASE
-        //       WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-        
-        //       -- DUPLICATE: only ref
-        //       WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
-        //         SELECT 
-        //           CASE 
-        //             WHEN original.status = 'REFUNDED' THEN original.admin_fee
-        //             ELSE original.amount
-        //           END
-        //         FROM qr AS original
-        //         WHERE original.id = qr.ref_ticket_no
-        //       )
-        
-              
-        
-        //       -- REFUNDED: regular ticket
-        //       WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-        
-        //       ELSE qr.amount
-        //     END
-        //   )
-        //   `,
-        //   'total_amount',
-        // )
-       
-       
-        // .addSelect(
-        //   `
-        //   SUM(
-        //     CASE 
-        //       WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-        
-        //       -- DUPLICATE: only ref if cash
-        //       WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
-        //         SELECT 
-        //           CASE 
-        //             WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
-        //             WHEN original.payment_mode ILIKE 'cash' THEN original.amount
-        //             ELSE 0
-        //           END
-        //         FROM qr AS original
-        //         WHERE original.id = qr.ref_ticket_no
-        //       )
-        
-        //       WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
-        //       WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
-        
-        //       ELSE 0
-        //     END
-        //   )
-        //   `,
-        //   'total_cash',
-        // )
-        // .addSelect(
-        //   `
-        //   SUM(
-        //     CASE 
-        //       WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
-        
-        //       -- DUPLICATE: only ref if online
-        //       WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN (
-        //         SELECT 
-        //           CASE 
-        //             WHEN original.status = 'REFUNDED' AND (
-        //               original.payment_mode ILIKE 'online' OR 
-        //               original.payment_mode ILIKE 'credit_card' OR 
-        //               original.payment_mode ILIKE 'upi'
-        //             ) THEN original.admin_fee
-        //             WHEN original.payment_mode ILIKE 'online' OR 
-        //                  original.payment_mode ILIKE 'credit_card' OR 
-        //                  original.payment_mode ILIKE 'upi' THEN original.amount
-        //             ELSE 0
-        //           END
-        //         FROM qr AS original
-        //         WHERE original.id = qr.ref_ticket_no
-        //       )
-        
-             
-        
-        //       WHEN qr.status = 'REFUNDED' AND (
-        //         qr.payment_mode ILIKE 'online' OR 
-        //         qr.payment_mode ILIKE 'credit_card' OR 
-        //         qr.payment_mode ILIKE 'upi'
-        //       ) THEN qr.admin_fee
-        
-        //       WHEN qr.payment_mode ILIKE 'online' OR 
-        //            qr.payment_mode ILIKE 'credit_card' OR 
-        //            qr.payment_mode ILIKE 'upi' THEN qr.amount
-        
-        //       ELSE 0
-        //     END
-        //   )
-        //   `,
-        //   'total_online',
-        // )
-        // .where('qr.qr_date_time BETWEEN :start AND :end', {
-        //   start: start.toISOString(),
-        //   end: end.toISOString(),
-        // })
-
         .where(
           `(
             (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :start AND :end)
@@ -1296,50 +1153,130 @@ export class ReportsService {
         .andWhere(
           '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
           { stationId: currentStation.id },
-        )
-        .getRawOne();
+        );
 
+      if (paymentModes && paymentModes.length > 0) {
+        qrAmountQuery.andWhere(
+          'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+          {
+            paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+          },
+        );
+      }
+      if (transactionTypes && transactionTypes.length > 0) {
+        qrAmountQuery.andWhere(
+          'LOWER(transaction.support_type) IN (:...transactionTypes)',
+          {
+            transactionTypes: transactionTypes.map((type) =>
+              type.toLowerCase(),
+            ),
+          },
+        );
+      }
 
+      if (deviceTypes && deviceTypes.length > 0) {
+        qrAmountQuery.andWhere(
+          'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+          {
+            deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+          },
+        );
+      }
 
-      const qrDataForEntryExit = await this.qrRepository
-      .createQueryBuilder('qr').select(
-        `
+      if (deviceIds && deviceIds.length > 0) {
+        qrAmountQuery.andWhere(
+          'LOWER(transaction.device_id) IN (:...deviceIds)',
+          {
+            deviceIds: deviceIds.map((type) => type.toLowerCase()),
+          },
+        );
+      }
+
+      const qrData = await qrAmountQuery.getRawOne();
+
+      const qrQueryForEntryExit = this.qrRepository
+        .createQueryBuilder('qr')
+        .leftJoinAndSelect('qr.transaction', 'transaction')
+        .select(
+          `
         COALESCE(SUM(
-          CASE 
+          CASE
             WHEN qr.entry_station_id = :stationId THEN qr.entry_count
             ELSE 0
           END
         ), 0)
         `,
-        'total_entry_count',
-      )
-      .addSelect(
-        `
+          'total_entry_count',
+        )
+        .addSelect(
+          `
         COALESCE(SUM(
-          CASE 
+          CASE
             WHEN qr.exit_station_id = :stationId THEN qr.exit_count
             ELSE 0
           END
         ), 0)
         `,
-        'total_exit_count',
-      )   .where(
-        `(
+          'total_exit_count',
+        )
+        .where(
+          `(
           (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :start AND :end)
           OR
           (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :start AND :end)
         )`,
-        {
-          start: start.toISOString(),
-          end: end.toISOString(),
-        },
-      )
+          {
+            start: start.toISOString(),
+            end: end.toISOString(),
+          },
+        )
 
-      .andWhere('(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)', {
-        stationId: currentStation.id,
-      })
-      .setParameter('stationId', currentStation.id)
-      .getRawOne();
+        .andWhere(
+          '(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)',
+          {
+            stationId: currentStation.id,
+          },
+        )
+        .setParameter('stationId', currentStation.id);
+
+      if (paymentModes && paymentModes.length > 0) {
+        qrQueryForEntryExit.andWhere(
+          'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+          {
+            paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+          },
+        );
+      }
+      if (transactionTypes && transactionTypes.length > 0) {
+        qrQueryForEntryExit.andWhere(
+          'LOWER(transaction.support_type) IN (:...transactionTypes)',
+          {
+            transactionTypes: transactionTypes.map((type) =>
+              type.toLowerCase(),
+            ),
+          },
+        );
+      }
+
+      if (deviceTypes && deviceTypes.length > 0) {
+        qrQueryForEntryExit.andWhere(
+          'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+          {
+            deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+          },
+        );
+      }
+
+      if (deviceIds && deviceIds.length > 0) {
+        qrQueryForEntryExit.andWhere(
+          'LOWER(transaction.device_id) IN (:...deviceIds)',
+          {
+            deviceIds: deviceIds.map((type) => type.toLowerCase()),
+          },
+        );
+      }
+
+      const qrDataForEntryExit = await qrQueryForEntryExit.getRawOne();
 
       responseData.push({
         station_id: currentStation.id,
@@ -1350,8 +1287,10 @@ export class ReportsService {
         total_no_of_tickets: qrData?.total_no_of_tickets
           ? Number(qrData?.total_no_of_tickets)
           : 0,
-        total_entry_count: parseInt(qrDataForEntryExit.total_entry_count, 10) || 0,
-        total_exit_count: parseInt(qrDataForEntryExit.total_exit_count, 10) || 0,
+        total_entry_count:
+          parseInt(qrDataForEntryExit.total_entry_count, 10) || 0,
+        total_exit_count:
+          parseInt(qrDataForEntryExit.total_exit_count, 10) || 0,
       });
     }
 
@@ -1409,15 +1348,15 @@ export class ReportsService {
     //   .createQueryBuilder('transaction')
     //   .select([
     //     `COALESCE(
-    //   DATE(transaction.extended_time), 
+    //   DATE(transaction.extended_time),
     //   DATE(transaction.created_at)
     // ) AS date`,
     //     'COALESCE(SUM(transaction.amount), 0) AS total_amount',
     //     "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
-    //     `COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'credit_card' 
-    //   OR transaction.payment_mode ILIKE 'upi' 
-    //   OR transaction.payment_mode ILIKE 'online' 
-    //   THEN transaction.amount 
+    //     `COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'credit_card'
+    //   OR transaction.payment_mode ILIKE 'upi'
+    //   OR transaction.payment_mode ILIKE 'online'
+    //   THEN transaction.amount
     //   ELSE 0 END), 0) AS total_online`,
     //   ])
     //   .where(
@@ -1444,54 +1383,53 @@ export class ReportsService {
         SUM(
           CASE
             WHEN qr.status = 'CANCELLED' THEN 0
-      
+
             -- DUPLICATE: only ref
             WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
-              SELECT 
-                CASE 
+              SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' THEN original.admin_fee
                   ELSE original.amount
                 END
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
             )
-      
+
             -- PENALTY: current + ref
             WHEN qr.type = 'PENALTY' THEN (
-              (CASE 
+              (CASE
                 WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
                 ELSE qr.amount
               END) +
-              (SELECT 
-                CASE 
+              (SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' THEN original.admin_fee
                   ELSE original.amount
                 END
                FROM qr AS original
                WHERE original.id = qr.ref_ticket_no)
             )
-      
+
             -- REFUNDED: regular ticket
             WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
-      
+
             ELSE qr.amount
           END
         )
         `,
         'total_amount',
       )
-     
-     
+
       .addSelect(
         `
         SUM(
-          CASE 
+          CASE
             WHEN qr.status = 'CANCELLED' THEN 0
-      
+
             -- DUPLICATE: only ref if cash
             WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
-              SELECT 
-                CASE 
+              SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
                   WHEN original.payment_mode ILIKE 'cash' THEN original.amount
                   ELSE 0
@@ -1499,15 +1437,15 @@ export class ReportsService {
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
             )
-      
+
             -- PENALTY: both current and ref if both are cash
             WHEN qr.type = 'PENALTY' AND qr.payment_mode ILIKE 'cash' THEN (
-              (CASE 
+              (CASE
                 WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
                 ELSE qr.amount
               END) +
-              (SELECT 
-                CASE 
+              (SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' AND original.payment_mode ILIKE 'cash' THEN original.admin_fee
                   WHEN original.payment_mode ILIKE 'cash' THEN original.amount
                   ELSE 0
@@ -1515,10 +1453,10 @@ export class ReportsService {
                FROM qr AS original
                WHERE original.id = qr.ref_ticket_no)
             )
-      
+
             WHEN qr.status = 'REFUNDED' AND qr.payment_mode ILIKE 'cash' THEN qr.admin_fee
             WHEN qr.payment_mode ILIKE 'cash' THEN qr.amount
-      
+
             ELSE 0
           END
         )
@@ -1528,68 +1466,68 @@ export class ReportsService {
       .addSelect(
         `
         SUM(
-          CASE 
+          CASE
             WHEN qr.status = 'CANCELLED' THEN 0
-      
+
             -- DUPLICATE: only ref if online
             WHEN qr.type IN ('DUPLICATE', 'FREE') THEN (
-              SELECT 
-                CASE 
+              SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' AND (
-                    original.payment_mode ILIKE 'online' OR 
-                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'online' OR
+                    original.payment_mode ILIKE 'credit_card' OR
                     original.payment_mode ILIKE 'upi'
                   ) THEN original.admin_fee
-                  WHEN original.payment_mode ILIKE 'online' OR 
-                       original.payment_mode ILIKE 'credit_card' OR 
+                  WHEN original.payment_mode ILIKE 'online' OR
+                       original.payment_mode ILIKE 'credit_card' OR
                        original.payment_mode ILIKE 'upi' THEN original.amount
                   ELSE 0
                 END
               FROM qr AS original
               WHERE original.id = qr.ref_ticket_no
             )
-      
+
             -- PENALTY: add current + ref if both are online-like
             WHEN qr.type = 'PENALTY' AND (
               qr.payment_mode ILIKE 'online' OR qr.payment_mode ILIKE 'credit_card' OR qr.payment_mode ILIKE 'upi'
             ) THEN (
-              (CASE 
+              (CASE
                 WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
                 ELSE qr.amount
               END) +
-              (SELECT 
-                CASE 
+              (SELECT
+                CASE
                   WHEN original.status = 'REFUNDED' AND (
-                    original.payment_mode ILIKE 'online' OR 
-                    original.payment_mode ILIKE 'credit_card' OR 
+                    original.payment_mode ILIKE 'online' OR
+                    original.payment_mode ILIKE 'credit_card' OR
                     original.payment_mode ILIKE 'upi'
                   ) THEN original.admin_fee
-                  WHEN original.payment_mode ILIKE 'online' OR 
-                       original.payment_mode ILIKE 'credit_card' OR 
+                  WHEN original.payment_mode ILIKE 'online' OR
+                       original.payment_mode ILIKE 'credit_card' OR
                        original.payment_mode ILIKE 'upi' THEN original.amount
                   ELSE 0
                 END
                FROM qr AS original
                WHERE original.id = qr.ref_ticket_no)
             )
-      
+
             WHEN qr.status = 'REFUNDED' AND (
-              qr.payment_mode ILIKE 'online' OR 
-              qr.payment_mode ILIKE 'credit_card' OR 
+              qr.payment_mode ILIKE 'online' OR
+              qr.payment_mode ILIKE 'credit_card' OR
               qr.payment_mode ILIKE 'upi'
             ) THEN qr.admin_fee
-      
-            WHEN qr.payment_mode ILIKE 'online' OR 
-                 qr.payment_mode ILIKE 'credit_card' OR 
+
+            WHEN qr.payment_mode ILIKE 'online' OR
+                 qr.payment_mode ILIKE 'credit_card' OR
                  qr.payment_mode ILIKE 'upi' THEN qr.amount
-      
+
             ELSE 0
           END
         )
         `,
         'total_online',
       )
-   
+
       .where(
         `(
       (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :start AND :end)
@@ -1598,13 +1536,8 @@ export class ReportsService {
     )`,
         { start: startDate.toISOString(), end: endDate.toISOString() },
       )
-      .groupBy(
-        `COALESCE(DATE(qr.extended_time), DATE(qr.created_at))`,
-      )
-      .orderBy(
-        `COALESCE(DATE(qr.extended_time), DATE(qr.created_at))`,
-        'ASC',
-      )
+      .groupBy(`COALESCE(DATE(qr.extended_time), DATE(qr.created_at))`)
+      .orderBy(`COALESCE(DATE(qr.extended_time), DATE(qr.created_at))`, 'ASC')
       .getRawMany();
 
     console.log('Daily Revenue Data:', dailyRevenue);
@@ -1695,23 +1628,25 @@ export class ReportsService {
   async findAllMonthlyPagination(queryParams: {
     fromDate?: Date | string;
     toDate?: Date | string;
-    orderId?: string;
-    paymentMode?: string;
-    transactionType?: string;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[];
     page?: number;
     limit?: number;
-    stationId?: number;
   }) {
     try {
       const {
         fromDate,
         toDate,
-        orderId,
-        paymentMode,
-        transactionType,
+        paymentModes,
+        transactionTypes,
+        deviceTypes,
+        deviceIds,
+        stations,
         page,
         limit,
-        stationId,
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -1719,62 +1654,73 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
-      if (stationId) {
+
+      if (stations && stations.length > 0) {
         queryBuilder.andWhere(
-          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
-          { stationId },
+          '(qr.source_id IN (:...stations) OR qr.destination_id IN (:...stations))',
+          { stations },
         );
       }
 
-      if (orderId) {
-        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
-          orderId: `%${orderId}%`,
-        });
-      } else {
-        // if (fromDate) {
-        //   queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-        //     fromDate,
-        //   });
-        // }
-        // if (toDate) {
-        //   queryBuilder.andWhere('transaction.created_at <= :toDate', {
-        //     toDate,
-        //   });
-        // }
-
-        if (fromDate) {
-          queryBuilder.andWhere(
-            `(
+      if (fromDate) {
+        queryBuilder.andWhere(
+          `(
               (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
               OR
               (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
             )`,
-            { fromDate },
-          );
-        }
+          { fromDate },
+        );
+      }
 
-        if (toDate) {
-          queryBuilder.andWhere(
-            `(
+      if (toDate) {
+        queryBuilder.andWhere(
+          `(
               (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
               OR
               (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
             )`,
-            { toDate },
-          );
-        }
-
-        if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
-            paymentMode: `%${paymentMode}%`,
-          });
-        }
-        if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
-            transactionType: `%${transactionType}%`,
-          });
-        }
+          { toDate },
+        );
       }
+
+      if (paymentModes && paymentModes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+          {
+            paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+          },
+        );
+      }
+      if (transactionTypes && transactionTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.support_type) IN (:...transactionTypes)',
+          {
+            transactionTypes: transactionTypes.map((type) =>
+              type.toLowerCase(),
+            ),
+          },
+        );
+      }
+
+      if (deviceTypes && deviceTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+          {
+            deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+          },
+        );
+      }
+
+      if (deviceIds && deviceIds.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.device_id) IN (:...deviceIds)',
+          {
+            deviceIds: deviceIds.map((type) => type.toLowerCase()),
+          },
+        );
+      }
+
       queryBuilder.orderBy('qr.id', 'DESC');
 
       const offset = (page - 1) * limit;
@@ -1802,19 +1748,21 @@ export class ReportsService {
   async findAllMonthly(queryParams: {
     fromDate?: Date | string;
     toDate?: Date | string;
-    orderId?: string;
-    paymentMode?: string;
-    transactionType?: string;
-    stationId?: number;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[];
   }) {
     try {
       const {
         fromDate,
         toDate,
-        orderId,
-        paymentMode,
-        transactionType,
-        stationId,
+        paymentModes,
+        transactionTypes,
+        deviceTypes,
+        deviceIds,
+        stations,
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -1822,61 +1770,70 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
-      if (stationId) {
+      if (stations && stations.length > 0) {
         queryBuilder.andWhere(
-          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
-          { stationId },
+          '(qr.source_id IN (:...stations) OR qr.destination_id IN (:...stations))',
+          { stations },
         );
       }
 
-      if (orderId) {
-        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
-          orderId: `%${orderId}%`,
-        });
-      } else {
-        // if (fromDate) {
-        //   queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-        //     fromDate,
-        //   });
-        // }
-        // if (toDate) {
-        //   queryBuilder.andWhere('transaction.created_at <= :toDate', {
-        //     toDate,
-        //   });
-        // }
-
-        if (fromDate) {
-          queryBuilder.andWhere(
-            `(
+      if (fromDate) {
+        queryBuilder.andWhere(
+          `(
               (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
               OR
               (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
             )`,
-            { fromDate },
-          );
-        }
+          { fromDate },
+        );
+      }
 
-        if (toDate) {
-          queryBuilder.andWhere(
-            `(
+      if (toDate) {
+        queryBuilder.andWhere(
+          `(
               (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
               OR
               (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
             )`,
-            { toDate },
-          );
-        }
+          { toDate },
+        );
+      }
 
-        if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
-            paymentMode: `%${paymentMode}%`,
-          });
-        }
-        if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
-            transactionType: `%${transactionType}%`,
-          });
-        }
+      if (paymentModes && paymentModes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+          {
+            paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+          },
+        );
+      }
+      if (transactionTypes && transactionTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.support_type) IN (:...transactionTypes)',
+          {
+            transactionTypes: transactionTypes.map((type) =>
+              type.toLowerCase(),
+            ),
+          },
+        );
+      }
+
+      if (deviceTypes && deviceTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+          {
+            deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+          },
+        );
+      }
+
+      if (deviceIds && deviceIds.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.device_id) IN (:...deviceIds)',
+          {
+            deviceIds: deviceIds.map((type) => type.toLowerCase()),
+          },
+        );
       }
 
       const [transactions, total] = await queryBuilder.getManyAndCount();
@@ -1898,23 +1855,25 @@ export class ReportsService {
   async findAllDailyPagination(queryParams: {
     fromDate?: Date | string;
     toDate?: Date | string;
-    orderId?: string;
-    paymentMode?: string;
-    transactionType?: string;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[];
     page?: number;
     limit?: number;
-    stationId?: number;
   }) {
     try {
       const {
         fromDate,
         toDate,
-        orderId,
-        paymentMode,
-        transactionType,
+        paymentModes,
+        transactionTypes,
+        deviceTypes,
+        deviceIds,
+        stations,
         page,
         limit,
-        stationId,
       } = queryParams;
       console.log('a', fromDate);
 
@@ -1923,60 +1882,70 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
-      if (stationId) {
+      if (stations && stations.length > 0) {
         queryBuilder.andWhere(
-          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
-          { stationId },
+          '(qr.source_id IN (:...stations) OR qr.destination_id IN (:...stations))',
+          { stations },
         );
       }
 
-      if (orderId) {
-        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
-          orderId: `%${orderId}%`,
-        });
-      } else {
-        // if (fromDate) {
-        //   queryBuilder.andWhere('transaction.created_at >= :fromDate' , {
-        //     fromDate,
-        //   });
-        // }
-        // if (toDate) {
-        //   queryBuilder.andWhere('transaction.created_at <= :toDate', {
-        //     toDate,
-        //   });
-        // }
-        if (fromDate) {
-          queryBuilder.andWhere(
-            `(
+      if (fromDate) {
+        queryBuilder.andWhere(
+          `(
               (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
               OR
               (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
             )`,
-            { fromDate },
-          );
-        }
+          { fromDate },
+        );
+      }
 
-        if (toDate) {
-          queryBuilder.andWhere(
-            `(
+      if (toDate) {
+        queryBuilder.andWhere(
+          `(
               (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
               OR
               (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
             )`,
-            { toDate },
-          );
-        }
+          { toDate },
+        );
+      }
 
-        if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
-            paymentMode: `%${paymentMode}%`,
-          });
-        }
-        if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
-            transactionType: `%${transactionType}%`,
-          });
-        }
+      if (paymentModes && paymentModes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+          {
+            paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+          },
+        );
+      }
+      if (transactionTypes && transactionTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.support_type) IN (:...transactionTypes)',
+          {
+            transactionTypes: transactionTypes.map((type) =>
+              type.toLowerCase(),
+            ),
+          },
+        );
+      }
+
+      if (deviceTypes && deviceTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+          {
+            deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+          },
+        );
+      }
+
+      if (deviceIds && deviceIds.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.device_id) IN (:...deviceIds)',
+          {
+            deviceIds: deviceIds.map((type) => type.toLowerCase()),
+          },
+        );
       }
 
       queryBuilder.orderBy('qr.id', 'DESC');
@@ -2006,19 +1975,21 @@ export class ReportsService {
   async findAllDaily(queryParams: {
     fromDate?: Date | string;
     toDate?: Date | string;
-    orderId?: string;
-    paymentMode?: string;
-    transactionType?: string;
-    stationId?: number;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[];
   }) {
     try {
       const {
         fromDate,
         toDate,
-        orderId,
-        paymentMode,
-        transactionType,
-        stationId,
+        paymentModes,
+        transactionTypes,
+        deviceTypes,
+        deviceIds,
+        stations,
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -2026,59 +1997,70 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
-      if (stationId) {
+      if (stations && stations.length > 0) {
         queryBuilder.andWhere(
-          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
-          { stationId },
+          '(qr.source_id IN (:...stations) OR qr.destination_id IN (:...stations))',
+          { stations },
         );
       }
-      if (orderId) {
-        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
-          orderId: `%${orderId}%`,
-        });
-      } else {
-        // if (fromDate) {
-        //   queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-        //     fromDate,
-        //   });
-        // }
-        // if (toDate) {
-        //   queryBuilder.andWhere('transaction.created_at <= :toDate', {
-        //     toDate,
-        //   });
-        // }
-        if (fromDate) {
-          queryBuilder.andWhere(
-            `(
+
+      if (fromDate) {
+        queryBuilder.andWhere(
+          `(
               (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
               OR
               (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
             )`,
-            { fromDate },
-          );
-        }
+          { fromDate },
+        );
+      }
 
-        if (toDate) {
-          queryBuilder.andWhere(
-            `(
+      if (toDate) {
+        queryBuilder.andWhere(
+          `(
               (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
               OR
               (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
             )`,
-            { toDate },
-          );
-        }
+          { toDate },
+        );
+      }
 
-        if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
-            paymentMode: `%${paymentMode}%`,
-          });
-        }
-        if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
-            transactionType: `%${transactionType}%`,
-          });
-        }
+      if (paymentModes && paymentModes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+          {
+            paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+          },
+        );
+      }
+      if (transactionTypes && transactionTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.support_type) IN (:...transactionTypes)',
+          {
+            transactionTypes: transactionTypes.map((type) =>
+              type.toLowerCase(),
+            ),
+          },
+        );
+      }
+
+      if (deviceTypes && deviceTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+          {
+            deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+          },
+        );
+      }
+
+      if (deviceIds && deviceIds.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.device_id) IN (:...deviceIds)',
+          {
+            deviceIds: deviceIds.map((type) => type.toLowerCase()),
+          },
+        );
       }
 
       const [transactions, total] = await queryBuilder.getManyAndCount();
@@ -2101,23 +2083,25 @@ export class ReportsService {
   async findAllHourlyPagination(queryParams: {
     fromDate?: Date | string;
     toDate?: Date | string;
-    orderId?: string;
-    paymentMode?: string;
-    transactionType?: string;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[];
     page?: number;
     limit?: number;
-    stationId?: number;
   }) {
     try {
       const {
         fromDate,
         toDate,
-        orderId,
-        paymentMode,
-        transactionType,
+        paymentModes,
+        transactionTypes,
+        deviceTypes,
+        deviceIds,
+        stations,
         page,
         limit,
-        stationId,
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -2125,38 +2109,72 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
-      if (stationId) {
+
+      if (stations && stations.length > 0) {
         queryBuilder.andWhere(
-          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
-          { stationId },
+          '(qr.source_id IN (:...stations) OR qr.destination_id IN (:...stations))',
+          { stations },
         );
       }
-      if (orderId) {
-        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
-          orderId: `%${orderId}%`,
-        });
-      } else {
-        if (fromDate) {
-          queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-            fromDate,
-          });
-        }
-        if (toDate) {
-          queryBuilder.andWhere('transaction.created_at <= :toDate', {
-            toDate,
-          });
-        }
 
-        if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
-            paymentMode: `%${paymentMode}%`,
-          });
-        }
-        if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
-            transactionType: `%${transactionType}%`,
-          });
-        }
+      if (fromDate) {
+        queryBuilder.andWhere(
+          `(
+            (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
+            OR
+            (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
+          )`,
+          { fromDate },
+        );
+      }
+
+      if (toDate) {
+        queryBuilder.andWhere(
+          `(
+            (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
+            OR
+            (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
+          )`,
+          { toDate },
+        );
+      }
+
+      if (paymentModes && paymentModes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+          {
+            paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+          },
+        );
+      }
+
+      if (transactionTypes && transactionTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.support_type) IN (:...transactionTypes)',
+          {
+            transactionTypes: transactionTypes.map((type) =>
+              type.toLowerCase(),
+            ),
+          },
+        );
+      }
+
+      if (deviceTypes && deviceTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+          {
+            deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+          },
+        );
+      }
+
+      if (deviceIds && deviceIds.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.device_id) IN (:...deviceIds)',
+          {
+            deviceIds: deviceIds.map((id) => id.toLowerCase()),
+          },
+        );
       }
 
       queryBuilder.orderBy('qr.id', 'DESC');
@@ -2186,19 +2204,21 @@ export class ReportsService {
   async findAllHourly(queryParams: {
     fromDate?: Date | string;
     toDate?: Date | string;
-    orderId?: string;
-    paymentMode?: string;
-    transactionType?: string;
-    stationId?: number;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[];
   }) {
     try {
       const {
         fromDate,
         toDate,
-        orderId,
-        paymentMode,
-        transactionType,
-        stationId,
+        paymentModes,
+        transactionTypes,
+        deviceTypes,
+        deviceIds,
+        stations,
       } = queryParams;
 
       const queryBuilder = this.qrRepository
@@ -2206,39 +2226,72 @@ export class ReportsService {
         .leftJoinAndSelect('qr.transaction', 'transaction')
         .leftJoinAndSelect('transaction.station', 'station')
         .leftJoinAndSelect('transaction.destination', 'destination');
-      if (stationId) {
+
+      if (stations && stations.length > 0) {
         queryBuilder.andWhere(
-          '(qr.source_id = :stationId OR qr.destination_id = :stationId)',
-          { stationId },
+          '(qr.source_id IN (:...stations) OR qr.destination_id IN (:...stations))',
+          { stations },
         );
       }
 
-      if (orderId) {
-        queryBuilder.andWhere('transaction.order_id ILIKE :orderId', {
-          orderId: `%${orderId}%`,
-        });
-      } else {
-        if (fromDate) {
-          queryBuilder.andWhere('transaction.created_at >= :fromDate', {
-            fromDate,
-          });
-        }
-        if (toDate) {
-          queryBuilder.andWhere('transaction.created_at <= :toDate', {
-            toDate,
-          });
-        }
+      if (fromDate) {
+        queryBuilder.andWhere(
+          `(
+            (transaction.extended_time IS NOT NULL AND transaction.extended_time >= :fromDate)
+            OR
+            (transaction.extended_time IS NULL AND transaction.created_at >= :fromDate)
+          )`,
+          { fromDate },
+        );
+      }
 
-        if (paymentMode) {
-          queryBuilder.andWhere('transaction.payment_mode ILIKE :paymentMode', {
-            paymentMode: `%${paymentMode}%`,
-          });
-        }
-        if (transactionType) {
-          queryBuilder.andWhere('transaction.txn_type ILIKE :transactionType', {
-            transactionType: `%${transactionType}%`,
-          });
-        }
+      if (toDate) {
+        queryBuilder.andWhere(
+          `(
+            (transaction.extended_time IS NOT NULL AND transaction.extended_time <= :toDate)
+            OR
+            (transaction.extended_time IS NULL AND transaction.created_at <= :toDate)
+          )`,
+          { toDate },
+        );
+      }
+
+      if (paymentModes && paymentModes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+          {
+            paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+          },
+        );
+      }
+
+      if (transactionTypes && transactionTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.support_type) IN (:...transactionTypes)',
+          {
+            transactionTypes: transactionTypes.map((type) =>
+              type.toLowerCase(),
+            ),
+          },
+        );
+      }
+
+      if (deviceTypes && deviceTypes.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+          {
+            deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+          },
+        );
+      }
+
+      if (deviceIds && deviceIds.length > 0) {
+        queryBuilder.andWhere(
+          'LOWER(transaction.device_id) IN (:...deviceIds)',
+          {
+            deviceIds: deviceIds.map((id) => id.toLowerCase()),
+          },
+        );
       }
 
       const [transactions, total] = await queryBuilder.getManyAndCount();
@@ -2498,11 +2551,28 @@ export class ReportsService {
   //   }
   // }
 
-  async Ridership(fromDate: Date, toDate: Date, stationId: number) {
+  async Ridership(queryParams: {
+    fromDate?: Date | string;
+    toDate?: Date | string;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[];
+  }) {
     try {
-      const stations = stationId
+      const {
+        fromDate,
+        toDate,
+        paymentModes,
+        transactionTypes,
+        deviceTypes,
+        deviceIds,
+        stations: stationIds,
+      } = queryParams;
+      const stations = stationIds
         ? await this.stationRepository.find({
-            where: { is_active: true, id: stationId },
+            where: { is_active: true, id: In(stationIds) },
             order: { id: 'ASC' },
           })
         : await this.stationRepository.find({
@@ -2512,101 +2582,91 @@ export class ReportsService {
 
       const stationData = await Promise.all(
         stations.map(async (station) => {
-          // const entryCount = await this.qrRepository
-          //   .createQueryBuilder('qr')
-          //   .where('qr.source_id = :sourceId', { sourceId: station.id })
-          //   .andWhere('qr.created_at BETWEEN :fromDate AND :toDate', {
-          //     fromDate,
-          //     toDate,
-          //   })
-
-          //   .select('SUM(qr.entry_count)', 'totalEntryCount')
-          //   .getRawOne();
-
-          // const exitCount = await this.qrRepository
-          //   .createQueryBuilder('qr')
-          //   .where('qr.destination_id = :destinationId', {
-          //     destinationId: station.id,
-          //   })
-          //   .andWhere('qr.created_at BETWEEN :fromDate AND :toDate', {
-          //     fromDate,
-          //     toDate,
-          //   })
-
-          //   .select('SUM(qr.exit_count)', 'totalExitCount')
-          //   .getRawOne();
-
-    //       const entryCount = await this.qrRepository
-    //         .createQueryBuilder('qr')
-    //         .where('qr.source_id = :sourceId', { sourceId: station.id })
-    //         .andWhere(
-    //           `(
-    //   (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
-    //   OR
-    //   (qr.extended_time IS NULL AND qr.created_at BETWEEN :fromDate AND :toDate)
-    // )`,
-    //           { fromDate, toDate },
-    //         )
-    //         .select('SUM(qr.entry_count)', 'totalEntryCount')
-    //         .getRawOne();
-
-    //       const exitCount = await this.qrRepository
-    //         .createQueryBuilder('qr')
-    //         .where('qr.destination_id = :destinationId', {
-    //           destinationId: station.id,
-    //         })
-    //         .andWhere(
-    //           `(
-    //   (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
-    //   OR
-    //   (qr.extended_time IS NULL AND qr.created_at BETWEEN :fromDate AND :toDate)
-    // )`,
-    //           { fromDate, toDate },
-    //         )
-    //         .select('SUM(qr.exit_count)', 'totalExitCount')
-    //         .getRawOne();
-
-    const qrDataForEntryExit = await this.qrRepository
-        .createQueryBuilder('qr').select(
-          `
+          const qrQuery = this.qrRepository
+            .createQueryBuilder('qr')
+            .leftJoinAndSelect('qr.transaction', 'transaction')
+            .select(
+              `
           COALESCE(SUM(
-            CASE 
+            CASE
               WHEN qr.entry_station_id = :stationId THEN qr.entry_count
               ELSE 0
             END
           ), 0)
           `,
-          'total_entry_count',
-        )
-        .addSelect(
-          `
+              'total_entry_count',
+            )
+            .addSelect(
+              `
           COALESCE(SUM(
-            CASE 
+            CASE
               WHEN qr.exit_station_id = :stationId THEN qr.exit_count
               ELSE 0
             END
           ), 0)
           `,
-          'total_exit_count',
-        )        .where(
-          `(
+              'total_exit_count',
+            )
+            .where(
+              `(
             (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
             OR
             (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :fromDate AND :toDate)
           )`,
-          {
-            fromDate,
-            toDate,
-          },
-        )
+              {
+                fromDate,
+                toDate,
+              },
+            )
 
-        .andWhere('(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)', {
-          stationId: station?.id,
-        })
-        .setParameter('stationId', station?.id)
-        .getRawOne();
+            .andWhere(
+              '(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)',
+              {
+                stationId: station?.id,
+              },
+            )
+            .setParameter('stationId', station?.id);
+          // .getRawOne();
 
-        console.log(qrDataForEntryExit, station?.id, fromDate, toDate)
+          if (paymentModes?.length) {
+            qrQuery.andWhere(
+              'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+              {
+                paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+              },
+            );
+          }
+
+          if (transactionTypes?.length) {
+            qrQuery.andWhere(
+              'LOWER(transaction.support_type) IN (:...transactionTypes)',
+              {
+                transactionTypes: transactionTypes.map((type) =>
+                  type.toLowerCase(),
+                ),
+              },
+            );
+          }
+
+          if (deviceTypes?.length) {
+            qrQuery.andWhere(
+              'LOWER(transaction.device_type) IN (:...deviceTypes)',
+              {
+                deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+              },
+            );
+          }
+
+          if (deviceIds?.length) {
+            qrQuery.andWhere(
+              'LOWER(transaction.device_id) IN (:...deviceIds)',
+              {
+                deviceIds: deviceIds.map((id) => id.toLowerCase()),
+              },
+            );
+          }
+
+          const qrDataForEntryExit = await qrQuery.getRawOne();
 
           return {
             ...station,
@@ -2621,10 +2681,678 @@ export class ReportsService {
         data: stationData,
       };
     } catch (error) {
-      console.log(error)
+      console.log(error);
       return {
         success: false,
         message: 'Failed to retrieve stations and counts',
+        error: error.message,
+      };
+    }
+  }
+  async Ridershipv2(queryParams: {
+    fromDate?: Date | string;
+    toDate?: Date | string;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    deviceIds?: string[];
+    stations?: number[];
+  }) {
+    try {
+      const {
+        fromDate,
+        toDate,
+        paymentModes,
+        transactionTypes,
+        deviceTypes,
+        deviceIds,
+        stations: stationIds,
+      } = queryParams;
+      const stations = stationIds
+        ? await this.stationRepository.find({
+            where: { is_active: true, id: In(stationIds) },
+            order: { id: 'ASC' },
+          })
+        : await this.stationRepository.find({
+            where: { is_active: true },
+            order: { id: 'ASC' },
+          });
+
+      const stationData = await Promise.all(
+        stations.map(async (station) => {
+          const qrQuery = this.qrRepository
+            .createQueryBuilder('qr')
+            .leftJoinAndSelect('qr.transaction', 'transaction')
+            .select(
+              `
+          COALESCE(SUM(
+            CASE
+              WHEN qr.entry_station_id = :stationId THEN qr.entry_count
+              ELSE 0
+            END
+          ), 0)
+          `,
+              'total_entry_count',
+            )
+            .addSelect(
+              `
+          COALESCE(SUM(
+            CASE
+              WHEN qr.exit_station_id = :stationId THEN qr.exit_count
+              ELSE 0
+            END
+          ), 0)
+          `,
+              'total_exit_count',
+            )
+            .where(
+              `(
+            (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
+            OR
+            (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :fromDate AND :toDate)
+          )`,
+              {
+                fromDate,
+                toDate,
+              },
+            )
+
+            .andWhere(
+              '(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)',
+              {
+                stationId: station?.id,
+              },
+            )
+            .setParameter('stationId', station?.id);
+          // .getRawOne();
+
+          if (paymentModes?.length) {
+            qrQuery.andWhere(
+              'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+              {
+                paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+              },
+            );
+          }
+
+          if (transactionTypes?.length) {
+            qrQuery.andWhere(
+              'LOWER(transaction.support_type) IN (:...transactionTypes)',
+              {
+                transactionTypes: transactionTypes.map((type) =>
+                  type.toLowerCase(),
+                ),
+              },
+            );
+          }
+
+          if (deviceTypes?.length) {
+            qrQuery.andWhere(
+              'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+              {
+                deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+              },
+            );
+          }
+
+          if (deviceIds?.length) {
+            qrQuery.andWhere(
+              'LOWER(transaction.device_id) IN (:...deviceIds)',
+              {
+                deviceIds: deviceIds.map((id) => id.toLowerCase()),
+              },
+            );
+          }
+
+          const qrDataForEntryExit = await qrQuery.getRawOne();
+
+
+          const qrDataQuery = this.qrRepository
+          .createQueryBuilder('qr')
+          .leftJoinAndSelect('qr.transaction', 'transaction')
+          .select(
+            `
+        COALESCE(SUM(
+          CASE
+            WHEN qr.source_id = :stationId THEN qr.entry_count
+            ELSE 0
+          END
+        ), 0)
+        `,
+            'total_ticket_count',
+          )
+          .addSelect('COUNT(*)', 'total_ticket_count')
+          .addSelect(
+            `COUNT(CASE WHEN qr.type = 'PENALTY' THEN 1 ELSE NULL END)`,
+            'total_penalty_count',
+          )
+          .addSelect(
+            `COALESCE(SUM(CASE WHEN qr.type = 'PENALTY' THEN qr.amount ELSE 0 END), 0)`,
+            'total_penalty_amount',
+          )
+          .addSelect(
+            `COUNT(CASE WHEN qr.status = 'REFUNDED' THEN 1 ELSE NULL END)`,
+            'total_refund_count',
+          )
+          .addSelect(
+            `COALESCE(SUM(CASE 
+            WHEN qr.status = 'REFUNDED' 
+            THEN qr.amount - COALESCE(qr.admin_fee, 0) 
+            ELSE 0 
+          END), 0)`,
+            'total_refund_amount',
+          )
+          .addSelect(
+            `COUNT(CASE WHEN qr.type = 'FREE' THEN 1 ELSE NULL END)`,
+            'total_free_exit_count',
+          )
+          .addSelect(
+            `COUNT(CASE WHEN qr.type = 'PAID_EXIT' THEN 1 ELSE NULL END)`,
+            'total_paid_exit_count',
+          )
+          .addSelect(
+            `COUNT(CASE WHEN qr.type = 'DUPLICATE' THEN 1 ELSE NULL END)`,
+            'total_duplicate_count',
+          )
+          .where(
+            `(
+          (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
+          OR
+          (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :fromDate AND :toDate)
+        )`,
+            {
+              fromDate,
+              toDate,
+            },
+          )
+
+          .andWhere(
+            '(qr.source_id = :stationId)',
+            {
+              stationId: station?.id,
+            },
+          )
+          .setParameter('stationId', station?.id);
+
+          if (paymentModes?.length) {
+            qrDataQuery.andWhere(
+              'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+              {
+                paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+              },
+            );
+          }
+
+          if (transactionTypes?.length) {
+            qrDataQuery.andWhere(
+              'LOWER(transaction.support_type) IN (:...transactionTypes)',
+              {
+                transactionTypes: transactionTypes.map((type) =>
+                  type.toLowerCase(),
+                ),
+              },
+            );
+          }
+
+          if (deviceTypes?.length) {
+            qrDataQuery.andWhere(
+              'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+              {
+                deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+              },
+            );
+          }
+
+          if (deviceIds?.length) {
+            qrDataQuery.andWhere(
+              'LOWER(transaction.device_id) IN (:...deviceIds)',
+              {
+                deviceIds: deviceIds.map((id) => id.toLowerCase()),
+              },
+            );
+          }
+
+
+          const qrDataRidership = await qrDataQuery.getRawOne();
+          
+
+          return {
+            ...station,
+            entryCount: qrDataForEntryExit.total_entry_count || 0,
+            exitCount: qrDataForEntryExit.total_exit_count || 0,
+            totalTicketCount: qrDataRidership.total_ticket_count || 0,
+            totalPenaltyCount: qrDataRidership.total_penalty_count || 0,
+            totalPenaltyAmount: qrDataRidership.total_penalty_amount || 0,
+            totalRefundCount: qrDataRidership.total_refund_count || 0,
+            totalRefundAmount: qrDataRidership.total_refund_amount || 0,
+            totalFreeExitCount: qrDataRidership.total_free_exit_count || 0,
+            totalPaidExitCount: qrDataRidership.total_paid_exit_count || 0,
+            totalDuplicateCount: qrDataRidership.total_duplicate_count || 0,
+
+          };
+        }),
+      );
+
+      return {
+        success: true,
+        data: stationData,
+      };
+    } catch (error) {
+      console.log(error);
+      return {
+        success: false,
+        message: 'Failed to retrieve stations and counts',
+        error: error.message,
+      };
+    }
+  }
+
+  // async matrixReport(queryParams: {
+  //   fromDate?: Date | string;
+  //   toDate?: Date | string;
+  //   paymentModes?: string[];
+  //   transactionTypes?: string[];
+  //   deviceTypes?: string[];
+  //   stations?: number[];
+  // }) {
+  //   try {
+  //     const {
+  //       fromDate,
+  //       toDate,
+  //       paymentModes,
+  //       transactionTypes,
+  //       deviceTypes,
+  //       stations: stationIds,
+  //     } = queryParams;
+  //     const stations = stationIds
+  //       ? await this.stationRepository.find({
+  //           where: { is_active: true, id: In(stationIds) },
+  //           order: { id: 'ASC' },
+  //         })
+  //       : await this.stationRepository.find({
+  //           where: { is_active: true },
+  //           order: { id: 'ASC' },
+  //         });
+
+  //     const stationData = await Promise.all(
+  //       stations.map(async (station) => {
+  //         const qrQuery =  this.qrRepository
+  //           .createQueryBuilder('qr')
+  //           .leftJoinAndSelect('qr.transaction', 'transaction')
+  //           .select(
+  //             `
+  //         COALESCE(SUM(
+  //           CASE
+  //             WHEN qr.entry_station_id = :stationId THEN qr.entry_count
+  //             ELSE 0
+  //           END
+  //         ), 0)
+  //         `,
+  //             'total_entry_count',
+  //           )
+  //           .addSelect(
+  //             `
+  //         COALESCE(SUM(
+  //           CASE
+  //             WHEN qr.exit_station_id = :stationId THEN qr.exit_count
+  //             ELSE 0
+  //           END
+  //         ), 0)
+  //         `,
+  //             'total_exit_count',
+  //           )
+  //           .where(
+  //             `(
+  //           (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
+  //           OR
+  //           (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :fromDate AND :toDate)
+  //         )`,
+  //             {
+  //               fromDate,
+  //               toDate,
+  //             },
+  //           )
+
+  //           .andWhere(
+  //             '(qr.entry_station_id = :stationId OR qr.exit_station_id = :stationId)',
+  //             {
+  //               stationId: station?.id,
+  //             },
+  //           )
+  //           .setParameter('stationId', station?.id)
+  //           // .getRawOne();
+
+  //           if (paymentModes?.length) {
+  //             qrQuery.andWhere('LOWER(transaction.payment_mode) IN (:...paymentModes)', {
+  //               paymentModes: paymentModes.map((mode) => mode.toLowerCase()),
+  //             });
+  //           }
+
+  //           if (transactionTypes?.length) {
+  //             qrQuery.andWhere('LOWER(transaction.support_type) IN (:...transactionTypes)', {
+  //               transactionTypes: transactionTypes.map((type) => type.toLowerCase()),
+  //             });
+  //           }
+
+  //           if (deviceTypes?.length) {
+  //             qrQuery.andWhere('LOWER(transaction.device_type) IN (:...deviceTypes)', {
+  //               deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+  //             });
+  //           }
+
+  //           const qrDataForEntryExit = await qrQuery.getRawOne();
+
+  //         return {
+  //           ...station,
+  //           entryCount: qrDataForEntryExit.total_entry_count || 0,
+  //           exitCount: qrDataForEntryExit.total_exit_count || 0,
+  //         };
+  //       }),
+  //     );
+
+  //     return {
+  //       success: true,
+  //       data: stationData,
+  //     };
+  //   } catch (error) {
+  //     console.log(error);
+  //     return {
+  //       success: false,
+  //       message: 'Failed to retrieve stations and counts',
+  //       error: error.message,
+  //     };
+  //   }
+  // }
+  async matrixReport(queryParams: {
+    fromDate?: Date | string;
+    toDate?: Date | string;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    stations?: number[];
+  }) {
+    try {
+      const {
+        fromDate,
+        toDate,
+        paymentModes,
+        transactionTypes,
+        deviceTypes,
+        stations: stationIds,
+      } = queryParams;
+
+      // Fetch stations based on provided IDs
+      const stations = stationIds
+        ? await this.stationRepository.find({
+            where: { is_active: true, id: In(stationIds) },
+            order: { id: 'ASC' },
+          })
+        : await this.stationRepository.find({
+            where: { is_active: true },
+            order: { id: 'ASC' },
+          });
+
+      const stationList = await this.stationRepository.find({
+        where: { is_active: true },
+        order: { id: 'ASC' },
+      });
+
+      const stationData = await Promise.all(
+        stations.map(async (sourceStation) => {
+          const entryExitData = await Promise.all(
+            stationList.map(async (destinationStation) => {
+              if (sourceStation.id === destinationStation.id) {
+                return {
+                  sourceStationId: sourceStation.id,
+                  destinationStationId: destinationStation.id,
+                  totalTickets: 0, // Skip if source and destination are the same
+                };
+              }
+
+              const qrQuery = this.qrRepository
+                .createQueryBuilder('qr')
+                .leftJoinAndSelect('qr.transaction', 'transaction')
+                .select('COUNT(*)', 'total_tickets') // Count the total tickets for the combination
+                .where(
+                  `(
+                    (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
+                    OR
+                    (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :fromDate AND :toDate)
+                    AND
+                    qr.type IN ('RJT', 'SJT', 'PAID_EXIT')
+                  )`,
+                  {
+                    fromDate,
+                    toDate,
+                  },
+                )
+                .andWhere(
+                  `(
+                    (
+                      (qr.entry_station_id = :sourceStationId OR (qr.entry_station_id IS NULL AND qr.source_id = :sourceStationId))
+                      AND
+                      (qr.exit_station_id = :destinationStationId OR (qr.exit_station_id IS NULL AND qr.destination_id = :destinationStationId))
+                    )
+                  )`,
+                  {
+                    sourceStationId: sourceStation.id,
+                    destinationStationId: destinationStation.id,
+                  },
+                );
+
+              if (paymentModes && paymentModes.length > 0) {
+                qrQuery.andWhere(
+                  'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+                  {
+                    paymentModes: paymentModes.map((mode) =>
+                      mode.toLowerCase(),
+                    ),
+                  },
+                );
+              }
+
+              if (transactionTypes && transactionTypes.length > 0) {
+                qrQuery.andWhere(
+                  'LOWER(transaction.support_type) IN (:...transactionTypes)',
+                  {
+                    transactionTypes: transactionTypes.map((type) =>
+                      type.toLowerCase(),
+                    ),
+                  },
+                );
+              }
+
+              if (deviceTypes && deviceTypes.length > 0) {
+                qrQuery.andWhere(
+                  'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+                  {
+                    deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+                  },
+                );
+              }
+
+              const qrData = await qrQuery.getRawOne();
+
+              return {
+                sourceStationId: sourceStation.id,
+                destinationStationId: destinationStation.id,
+                destinationStationName: destinationStation.station_name,
+                totalTickets: qrData.total_tickets || 0, // Return the total number of tickets
+              };
+            }),
+          );
+
+          return {
+            sourceStation: sourceStation,
+            data: entryExitData,
+          };
+        }),
+      );
+
+      return {
+        success: true,
+        data: stationData,
+      };
+    } catch (error) {
+      console.log(error);
+      return {
+        success: false,
+        message: 'Failed to retrieve station ticket counts',
+        error: error.message,
+      };
+    }
+  }
+
+  async matrixReportAmount(queryParams: {
+    fromDate?: Date | string;
+    toDate?: Date | string;
+    paymentModes?: string[];
+    transactionTypes?: string[];
+    deviceTypes?: string[];
+    stations?: number[];
+  }) {
+    try {
+      const {
+        fromDate,
+        toDate,
+        paymentModes,
+        transactionTypes,
+        deviceTypes,
+        stations: stationIds,
+      } = queryParams;
+
+      // Fetch stations based on provided IDs
+      const stations = stationIds
+        ? await this.stationRepository.find({
+            where: { is_active: true, id: In(stationIds) },
+            order: { id: 'ASC' },
+          })
+        : await this.stationRepository.find({
+            where: { is_active: true },
+            order: { id: 'ASC' },
+          });
+
+      const stationList = await this.stationRepository.find({
+        where: { is_active: true },
+        order: { id: 'ASC' },
+      });
+
+      const stationData = await Promise.all(
+        stations.map(async (sourceStation) => {
+          const entryExitData = await Promise.all(
+            stationList.map(async (destinationStation) => {
+              // if (sourceStation.id === destinationStation.id) {
+              //   return {
+              //     sourceStationId: sourceStation.id,
+              //     destinationStationId: destinationStation.id,
+              //     totalAmount: 0, // Skip if source and destination are the same
+              //   };
+              // }
+
+              const qrQuery = this.qrRepository
+                .createQueryBuilder('qr')
+                .leftJoinAndSelect('qr.transaction', 'transaction')
+                .select(
+                  `
+                SUM(
+                  CASE
+                    WHEN qr.status = 'CANCELLED' AND qr.is_cancelled = true THEN 0
+        
+                    -- DUPLICATE: only ref
+                    WHEN qr.type IN ('DUPLICATE', 'FREE', 'PENALTY') THEN qr.amount
+        
+                    -- REFUNDED: regular ticket
+                    WHEN qr.status = 'REFUNDED' THEN qr.admin_fee
+        
+                    ELSE qr.amount
+                  END
+                )
+                `,
+                  'total_amount',
+                )
+                .where(
+                  `(
+                    (qr.extended_time IS NOT NULL AND qr.extended_time BETWEEN :fromDate AND :toDate)
+                    OR
+                    (qr.extended_time IS NULL AND qr.qr_date_time BETWEEN :fromDate AND :toDate)
+                  )`,
+                  {
+                    fromDate,
+                    toDate,
+                  },
+                )
+                .andWhere(
+                  `(
+                    (
+                      (qr.entry_station_id = :sourceStationId OR (qr.entry_station_id IS NULL AND qr.source_id = :sourceStationId))
+                      AND
+                      (qr.exit_station_id = :destinationStationId OR (qr.exit_station_id IS NULL AND qr.destination_id = :destinationStationId))
+                    )
+                  )`,
+                  {
+                    sourceStationId: sourceStation.id,
+                    destinationStationId: destinationStation.id,
+                  },
+                );
+
+              if (paymentModes && paymentModes.length > 0) {
+                qrQuery.andWhere(
+                  'LOWER(transaction.payment_mode) IN (:...paymentModes)',
+                  {
+                    paymentModes: paymentModes.map((mode) =>
+                      mode.toLowerCase(),
+                    ),
+                  },
+                );
+              }
+
+              if (transactionTypes && transactionTypes.length > 0) {
+                qrQuery.andWhere(
+                  'LOWER(transaction.support_type) IN (:...transactionTypes)',
+                  {
+                    transactionTypes: transactionTypes.map((type) =>
+                      type.toLowerCase(),
+                    ),
+                  },
+                );
+              }
+
+              if (deviceTypes && deviceTypes.length > 0) {
+                qrQuery.andWhere(
+                  'LOWER(transaction.txn_type) IN (:...deviceTypes)',
+                  {
+                    deviceTypes: deviceTypes.map((type) => type.toLowerCase()),
+                  },
+                );
+              }
+
+              const qrData = await qrQuery.getRawOne();
+
+              return {
+                sourceStationId: sourceStation.id,
+                destinationStationId: destinationStation.id,
+                destinationStationName: destinationStation.station_name,
+                totalAmount: qrData.total_amount || 0,
+              };
+            }),
+          );
+
+          return {
+            sourceStation: sourceStation,
+            data: entryExitData,
+          };
+        }),
+      );
+
+      return {
+        success: true,
+        data: stationData,
+      };
+    } catch (error) {
+      console.log(error);
+      return {
+        success: false,
+        message: 'Failed to retrieve station ticket counts',
         error: error.message,
       };
     }
@@ -2714,8 +3442,8 @@ export class ReportsService {
               `SUM(
         CASE
           WHEN transaction.payment_mode = :cash
-          THEN ROUND(CAST(transaction.amount AS NUMERIC) / 
-            (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s) * 
+          THEN ROUND(CAST(transaction.amount AS NUMERIC) /
+            (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s) *
             (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s WHERE s IN ('active', 'entry', 'exit')),2)
           ELSE 0
         END
@@ -2725,8 +3453,8 @@ export class ReportsService {
               `SUM(
         CASE
           WHEN transaction.payment_mode = :upi
-          THEN ROUND(CAST(transaction.amount AS NUMERIC) / 
-            (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s) * 
+          THEN ROUND(CAST(transaction.amount AS NUMERIC) /
+            (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s) *
             (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s WHERE s IN ('active', 'entry', 'exit')),2)
           ELSE 0
         END
@@ -2840,34 +3568,36 @@ export class ReportsService {
     return stationsArr;
   }
 
-  async tomShiftReport(date, station_id) {
+  async tomShiftReport({ date, deviceTypes, deviceIds, stations: stationIds }) {
     const startDate = new Date(date);
     const endDate = new Date(date);
     startDate.setUTCHours(0, 0, 0, 0);
     endDate.setUTCHours(23, 59, 59, 999);
-    const stations = await this.stationRepository.find({
-      select: ['id', 'station_name'],
-      order: {
-        id: 'ASC',
-      },
-    });
+    const stations = stationIds
+      ? await this.stationRepository.find({
+          where: { is_active: true, id: In(stationIds) },
+          order: { id: 'ASC' },
+        })
+      : await this.stationRepository.find({
+          where: { is_active: true },
+          order: { id: 'ASC' },
+        });
 
     const stationArr = [];
     for (const station of stations) {
-      if (station_id) {
-        if (station.id != station_id) {
-          continue;
-        }
-      }
-
       const stationObj = {
         station_name: station.station_name,
         date: date,
         device: [],
       };
 
-      const shift = await this.loginSessionRepository
+      const shiftQuery = this.loginSessionRepository
         .createQueryBuilder('session')
+        .leftJoinAndSelect(
+          'equipment',
+          'equipment',
+          'session.device_id = equipment.device_id',
+        )
         .where('session.station_id = :station_id', {
           station_id: station.id,
         })
@@ -2891,8 +3621,20 @@ export class ReportsService {
           'session.total_cancelled_amount as cancelled_amount',
           'session.total_amount as total_amount',
         ])
-        .orderBy('session.login_time', 'ASC')
-        .getRawMany();
+        .orderBy('session.login_time', 'ASC');
+
+      if (deviceIds && deviceIds.length > 0) {
+        shiftQuery.andWhere('session.device_id IN (:...deviceIds)', {
+          deviceIds,
+        });
+      }
+      if (deviceTypes && deviceTypes.length > 0) {
+        shiftQuery.andWhere('equipment.equipment_type IN (:...deviceTypes)', {
+          deviceTypes,
+        });
+      }
+
+      const shift = await shiftQuery.getRawMany();
 
       stationObj.device?.push(...shift);
 
@@ -2902,106 +3644,32 @@ export class ReportsService {
     return stationArr;
   }
 
-  // async getCollectionReportByStationOperator(date, station_id) {
-  //   const startDate = new Date(date);
-  //   const endDate = new Date(date);
-  //   console.log(startDate,"start");
-  //   startDate.setUTCHours(0, 0, 0, 0);
-  //   endDate.setUTCHours(23, 59, 59, 999);
-  //   const stations = await this.stationRepository.find({
-  //     select: ['id', 'station_name'],
-  //     order: {
-  //       id: 'ASC',
-  //     },
-  //   });
-
-  //   const stationArr = [];
-  //   for (const station of stations) {
-  //     if (station_id) {
-  //       if (station.id != station_id) {
-  //         continue;
-  //       }
-  //     }
-
-  //     const stationObj = {
-  //       station_name: station.station_name,
-  //       date: date,
-  //       devices: [],
-  //     };
-  //     const shift = await this.loginSessionRepository
-  //       .createQueryBuilder('session')
-  //       .where('session.station_id = :station_id', {
-  //         station_id: station.id,
-  //       })
-  //       .andWhere('session.created_at BETWEEN :start_date AND :end_date', {
-  //         start_date: startDate,
-  //         end_date: endDate,
-  //       })
-  //       .leftJoin('session.user', 'user')
-  //       .select([
-  //         'user.id as operator_id',
-  //         `user.first_name AS first_name`,
-  //         `user.last_name AS last_name`,
-  //         'CAST(session.cash_amount AS INTEGER)  as cash_amount',
-  //         'CAST(session.upi_amount as INTEGER) as upi_amount',
-  //         'CAST(session.no_of_tickets AS INTEGER) as no_of_tickets',
-  //         'CAST(session.device_id AS INTEGER) as device_id',
-  //         'CAST(session.no_of_tickets_cash AS INTEGER) as no_of_tickets_cash',
-  //         'CAST(session.no_of_tickets_upi AS INTEGER) as no_of_tickets_upi',
-  //         'CAST(session.no_of_refund AS INTEGER) as no_of_refund',
-  //         'CAST(session.total_refund_amount AS INTEGER) as refund_amount',
-  //         'CAST(session.no_of_cancelled AS INTEGER) as no_of_cancelled',
-  //         'CAST(session.total_cancelled_amount AS INTEGER) as cancelled_amount',
-  //         'CAST(session.total_amount AS INTEGER) as total_amount',
-  //       ])
-  //       .orderBy('session.created_at', 'ASC')
-  //       .getRawMany();
-
-  //     const shiftsArr = shift.reduce((acc, curr) => {
-  //       console.log(acc, curr.device_id);
-  //       let index = acc.findIndex((el) => el.device_name === curr.device_id);
-
-  //       if (index !== -1) {
-  //         curr.name = `${date} - ${curr.name} - (${curr.operator_id})`;
-  //         delete curr.device_id;
-  //         delete curr.operator_id;
-  //         acc[index].user.push(curr);
-  //       } else {
-  //         let device_id = curr.device_id;
-  //         curr.name = `${date} - ${curr.name} - (${curr.operator_id})`;
-  //         delete curr.device_id;
-  //         delete curr.operator_id;
-  //         acc.push({ device_name: device_id, user: [curr] });
-  //       }
-
-  //       return acc;
-  //     }, []);
-
-  //     stationObj.devices.push(...shiftsArr);
-  //     stationArr.push(stationObj);
-  //   }
-
-  //   return stationArr;
-  // }
-
-  async getCollectionReportByStationOperator(date, station_id) {
+  async getCollectionReportByStationOperator({
+    date,
+    deviceTypes,
+    deviceIds,
+    stations: stationIds,
+  }) {
     const startDate = new Date(date);
     const endDate = new Date(date);
     startDate.setUTCHours(0, 0, 0, 0);
     endDate.setUTCHours(23, 59, 59, 999);
 
-    const stations = await this.stationRepository.find({
-      select: ['id', 'station_name'],
-      order: {
-        id: 'ASC',
-      },
-    });
+    const stations = stationIds
+      ? await this.stationRepository.find({
+          where: { is_active: true, id: In(stationIds) },
+          order: { id: 'ASC' },
+        })
+      : await this.stationRepository.find({
+          where: { is_active: true },
+          order: { id: 'ASC' },
+        });
 
     const stationArr = [];
     for (const station of stations) {
-      if (station_id && station.id !== station_id) {
-        continue;
-      }
+      // if (station_id && station.id !== station_id) {
+      //   continue;
+      // }
 
       const stationObj = {
         station: station.station_name,
@@ -3009,8 +3677,13 @@ export class ReportsService {
         devices: [],
       };
 
-      const shifts = await this.loginSessionRepository
+      const shiftsQuery = this.loginSessionRepository
         .createQueryBuilder('session')
+        .leftJoinAndSelect(
+          'equipment',
+          'equipment',
+          'session.device_id = equipment.device_id',
+        )
         .where('session.station_id = :station_id', {
           station_id: station.id,
         })
@@ -3035,8 +3708,19 @@ export class ReportsService {
           'CAST(session.total_cancelled_amount AS INTEGER) as cancelled_amount',
           'CAST(session.total_amount AS INTEGER) as total_amount',
         ])
-        .orderBy('session.login_time', 'ASC')
-        .getRawMany();
+        .orderBy('session.login_time', 'ASC');
+
+      if (deviceIds && deviceIds.length > 0) {
+        shiftsQuery.andWhere('session.device_id IN (:...deviceIds)', {
+          deviceIds,
+        });
+      }
+      if (deviceTypes && deviceTypes.length > 0) {
+        shiftsQuery.andWhere('equipment.equipment_type IN (:...deviceTypes)', {
+          deviceTypes,
+        });
+      }
+      const shifts = await shiftsQuery.getRawMany();
 
       shifts.forEach((shift) => {
         const deviceEntry = {
@@ -3067,248 +3751,6 @@ export class ReportsService {
     }));
   }
 
-  // async getCollectionReportByStation(date, station_id) {
-  //   const deviceTypes = [
-  //     'RCTM-01',
-  //     'RCTM-02',
-  //     'TOM/EFO-01',
-  //     'TOM/EFO-02',
-  //     'TOM/EFO-03',
-  //     'TOM/EFO-11',
-  //     'TOM/EFO-12',
-  //     'TOM/EFO-22',
-  //     'TOM/EFO-41',
-  //     'TOM/EFO-42',
-  //     'TOM/EFO-43',
-  //     'TOM/EFO-44',
-  //     'TVM-01',
-  //     'TVM-02',
-  //     'TVM-03',
-  //     'TVM-04',
-  //     'TVM-11',
-  //     'TVM-12',
-  //     'TVM-13',
-  //     'TVM-14',
-  //     'TVM-15',
-  //     'TVM-16',
-  //   ];
-  //   const paymentTypes = ['cash', 'upi'];
-
-  //   const startDate = new Date(date);
-  //   const endDate = new Date(date);
-  //   startDate.setUTCHours(0, 0, 0, 0);
-  //   endDate.setUTCHours(23, 59, 59, 999);
-
-  //   const stations = await this.stationRepository.find({
-  //     select: ['id', 'station_name'],
-  //     order: { id: 'ASC' },
-  //   });
-
-  //   const stationsArr = [];
-
-  //   for (const station of stations) {
-  //     if (station_id && station.id !== station_id) {
-  //       continue;
-  //     }
-
-  //     let stationObj = {
-  //       station_name: station.station_name,
-  //       date: date,
-  //       shifts: [],
-  //     };
-
-  //     const configRes = await axios.get(
-  //       'http://localhost:8990/inventory/station-devices',
-  //     );
-
-  //     const stationsWithFilteredDevices = configRes.data?.data.map(
-  //       (station) => {
-  //         const filteredEquipments = station.equipments?.filter(
-  //           (equipment) => !equipment?.device_name?.includes('AG'),
-  //         );
-  //         return {
-  //           ...station,
-  //           equipments: filteredEquipments || [],
-  //         };
-  //       },
-  //     );
-
-  //     const stationDevices = stationsWithFilteredDevices.find(
-  //       (s) => s.station_name === station.station_name,
-  //     );
-
-  //     for (const deviceType of deviceTypes) {
-  //       let deviceTotal = {
-  //         device_name: deviceType,
-  //         cash: 0,
-  //         upi: 0,
-  //       };
-
-  //       const device = stationDevices?.equipments.find(
-  //         (equipment) => equipment.device_name === deviceType,
-  //       );
-
-  //       if (device) {
-  //         const sessions = await this.loginSessionRepository.find({
-  //           where: {
-  //             device_id: device.device_id,
-  //             created_at: Between(startDate, endDate),
-  //           },
-  //           select: [
-  //             'device_id',
-  //             'user',
-  //             'no_of_cancelled',
-  //             'no_of_refund',
-  //             'total_amount',
-  //             'login_time',
-  //             'logout_time',
-  //             'cash_amount',
-  //             'upi_amount',
-  //             'no_of_tickets',
-  //             'no_of_tickets_cash',
-  //             'no_of_tickets_upi',
-  //           ],
-  //         });
-
-  //         sessions.forEach(
-  //           (session) => (session.device_id = device.device_name),
-  //         );
-
-  //         sessions.forEach((session, index) => {
-  //           let shiftIndex = stationObj.shifts.findIndex(
-  //             (shift) => shift.shift_name === `shift ${index + 1}`,
-  //           );
-
-  //           if (shiftIndex !== -1) {
-  //             stationObj.shifts[shiftIndex].device.push(session);
-  //           } else {
-  //             stationObj.shifts.push({
-  //               shift_name: `shift ${index + 1}`,
-  //               device: [session],
-  //             });
-  //           }
-  //         });
-  //       }
-  //     }
-
-  //     stationsArr.push(stationObj);
-  //   }
-
-  //   return stationsArr;
-  // }
-
-  // async getCollectionReportByStation(date, station_id) {
-  //   const deviceTypes = [
-  //     'RCTM-01',
-  //     'RCTM-02',
-  //     'TOM/EFO-01',
-  //     'TOM/EFO-02',
-  //     'TOM/EFO-03',
-  //     'TOM/EFO-11',
-  //     'TOM/EFO-12',
-  //     'TOM/EFO-22',
-  //     'TOM/EFO-41',
-  //     'TOM/EFO-42',
-  //     'TOM/EFO-43',
-  //     'TOM/EFO-44',
-  //     'TVM-01',
-  //     'TVM-02',
-  //     'TVM-03',
-  //     'TVM-04',
-  //     'TVM-11',
-  //     'TVM-12',
-  //     'TVM-13',
-  //     'TVM-14',
-  //     'TVM-15',
-  //     'TVM-16',
-  //   ];
-
-  //   const startDate = new Date(date);
-  //   const endDate = new Date(date);
-  //   startDate.setUTCHours(0, 0, 0, 0);
-  //   endDate.setUTCHours(23, 59, 59, 999);
-
-  //   const stations = await this.stationRepository.find({
-  //     select: ['id', 'station_name'],
-  //     order: { id: 'ASC' },
-  //   });
-
-  //   const stationsArr = [];
-
-  //   for (const station of stations) {
-  //     if (station_id && station.id !== station_id) {
-  //       continue;
-  //     }
-
-  //     let stationObj = {
-  //       station_name: station.station_name,
-  //       date: date,
-  //       shifts: [],
-  //     };
-
-  //     const configRes = await axios.get(
-  //       'http://localhost:8990/inventory/station-devices',
-  //     );
-  //     const stationDevices = configRes.data?.data.find(
-  //       (s) => s.station_name === station.station_name,
-  //     );
-
-  //     for (const deviceType of deviceTypes) {
-  //       const device = stationDevices?.equipments.find(
-  //         (equipment) => equipment.device_name === deviceType,
-  //       );
-
-  //       if (device) {
-  //         const sessions = await this.loginSessionRepository.find({
-  //           where: {
-  //             device_id: device.device_id,
-  //             created_at: Between(startDate, endDate),
-  //           },
-  //           select: [
-  //             'device_id',
-  //             'shift_id',
-  //             'user',
-  //             'no_of_cancelled',
-  //             'no_of_refund',
-  //             'total_amount',
-  //             'login_time',
-  //             'logout_time',
-  //             'cash_amount',
-  //             'upi_amount',
-  //             'no_of_tickets',
-  //             'no_of_tickets_cash',
-  //             'no_of_tickets_upi',
-  //           ],
-  //         });
-
-  //         sessions.forEach((session, index) => {
-  //           let shift = {
-  //             name: `Shift ${index + 1}`,
-  //             shift_id: session.shift_id,
-  //             device_id: device.device_name,
-  //             total_amount: session.total_amount,
-  //             cash_amount: session.cash_amount,
-  //             upi_amount: session.upi_amount,
-  //             no_of_tickets: session.no_of_tickets,
-  //             no_of_tickets_cash: session.no_of_tickets_cash,
-  //             no_of_tickets_upi: session.no_of_tickets_upi,
-  //             no_of_refund: session.no_of_refund,
-  //             no_of_cancelled: session.no_of_cancelled,
-  //             login_time: session.login_time,
-  //             logout_time: session.logout_time,
-  //           };
-
-  //           stationObj.shifts.push(shift);
-  //         });
-  //       }
-  //     }
-
-  //     stationsArr.push(stationObj);
-  //   }
-
-  //   return stationsArr;
-  // }
-
   async getCollectionReportByStation(date, station_id = null) {
     const startDate = new Date(date);
     const endDate = new Date(date);
@@ -3318,74 +3760,73 @@ export class ReportsService {
     const stationFilter = station_id ? { id: station_id } : {};
 
     const stations = await this.stationRepository.find({
-        where: stationFilter,
-        select: ['id', 'station_name'],
-        order: { id: 'ASC' },
+      where: stationFilter,
+      select: ['id', 'station_name'],
+      order: { id: 'ASC' },
     });
 
     const stationsArr = [];
 
     for (const station of stations) {
-        let stationObj = {
-            station_name: station.station_name,
-            date: date,
-            shifts: [],
-        };
+      let stationObj = {
+        station_name: station.station_name,
+        date: date,
+        shifts: [],
+      };
 
-        const stationDevices = await this.equipmentRepository.find({
-            where: { station: { id: station.id } },
+      const stationDevices = await this.equipmentRepository.find({
+        where: { station: { id: station.id } },
+      });
+
+      for (const stationDevice of stationDevices) {
+        const sessions = await this.loginSessionRepository.find({
+          where: {
+            device_id: stationDevice.device_id,
+            login_time: Between(startDate, endDate),
+          },
+          select: [
+            'device_id',
+            'shift_id',
+            'user',
+            'no_of_cancelled',
+            'no_of_refund',
+            'total_amount',
+            'login_time',
+            'logout_time',
+            'cash_amount',
+            'upi_amount',
+            'no_of_tickets',
+            'no_of_tickets_cash',
+            'no_of_tickets_upi',
+          ],
         });
 
-        for (const stationDevice of stationDevices) {
-            const sessions = await this.loginSessionRepository.find({
-                where: {
-                    device_id: stationDevice.device_id,
-                    login_time: Between(startDate, endDate),
-                },
-                select: [
-                    'device_id',
-                    'shift_id',
-                    'user',
-                    'no_of_cancelled',
-                    'no_of_refund',
-                    'total_amount',
-                    'login_time',
-                    'logout_time',
-                    'cash_amount',
-                    'upi_amount',
-                    'no_of_tickets',
-                    'no_of_tickets_cash',
-                    'no_of_tickets_upi',
-                ],
-            });
+        sessions.forEach((session) => {
+          let shift = {
+            name: session.shift_id,
+            shift_id: session.shift_id,
+            device_id: stationDevice.device_name,
+            total_amount: session.total_amount,
+            cash_amount: session.cash_amount,
+            upi_amount: session.upi_amount,
+            no_of_tickets: session.no_of_tickets,
+            no_of_tickets_cash: session.no_of_tickets_cash,
+            no_of_tickets_upi: session.no_of_tickets_upi,
+            no_of_refund: session.no_of_refund,
+            no_of_cancelled: session.no_of_cancelled,
+            login_time: session.login_time,
+            logout_time: session.logout_time,
+          };
 
-            sessions.forEach((session) => {
-                let shift = {
-                    name: session.shift_id,
-                    shift_id: session.shift_id,
-                    device_id: stationDevice.device_name,
-                    total_amount: session.total_amount,
-                    cash_amount: session.cash_amount,
-                    upi_amount: session.upi_amount,
-                    no_of_tickets: session.no_of_tickets,
-                    no_of_tickets_cash: session.no_of_tickets_cash,
-                    no_of_tickets_upi: session.no_of_tickets_upi,
-                    no_of_refund: session.no_of_refund,
-                    no_of_cancelled: session.no_of_cancelled,
-                    login_time: session.login_time,
-                    logout_time: session.logout_time,
-                };
+          stationObj.shifts.push(shift);
+        });
+      }
 
-                stationObj.shifts.push(shift);
-            });
-        }
-
-        stationsArr.push(stationObj);
+      stationsArr.push(stationObj);
     }
 
     return stationsArr;
-}
-
+  }
 
   async shiftReport(payload: LoginSessionInput) {
     const {
@@ -3432,53 +3873,136 @@ export class ReportsService {
     return savedSession;
   }
 
-  async findShiftReport(payload: {
-    fromDate: Date;
-    endDate: Date;
-    station: string;
+  async findShiftReport({
+    fromDate,
+    endDate,
+    deviceTypes,
+    deviceIds,
+    stations: stationIds,
   }) {
     try {
-      const { fromDate, endDate, station } = payload;
+      // const { fromDate, endDate, station } = payload;
       const startDate = new Date(fromDate);
       const toDate = new Date(endDate);
 
-      console.log(station);
+      const stations = stationIds
+        ? await this.stationRepository.find({
+            where: { is_active: true, id: In(stationIds) },
+            order: { id: 'ASC' },
+          })
+        : await this.stationRepository.find({
+            where: { is_active: true },
+            order: { id: 'ASC' },
+          });
+
+      // console.log(station);
 
       startDate.setUTCHours(0, 0, 0, 0);
       toDate.setUTCHours(23, 59, 59, 999);
-      let where: any = {
-        login_time: Between(startDate, toDate),
-      };
-      if (station) {
-        where.station = { id: station };
+
+      const data = [];
+
+      for (const station of stations) {
+        // let where: any = {
+        //   login_time: Between(startDate, toDate),
+        //   station: station.id,
+        // };
+
+        // if (deviceIds && deviceIds.length > 0) {
+        //   .andWhere('session.device_id IN (:...deviceIds)', { deviceIds });
+        // }
+        // if (deviceTypes && deviceTypes.length > 0) {
+        //   .andWhere('equipment.equipment_type IN (:...deviceTypes)', { deviceTypes });
+        // }
+
+        // const sessions = await this.loginSessionRepository.findOne({
+        //   where,
+        //   relations: ['station', 'user'],
+        //   select: [
+        //     'id',
+        //     'device_id',
+        //     'station',
+        //     'shift_id',
+        //     'total_amount',
+        //     'cash_amount',
+        //     'upi_amount',
+        //     'no_of_tickets',
+        //     'no_of_tickets_cash',
+        //     'no_of_tickets_upi',
+        //     'no_of_refund',
+        //     'total_refund_amount',
+        //     'no_of_cancelled',
+        //     'total_cancelled_amount',
+        //     'login_time',
+        //     'logout_time',
+        //     'user',
+        //     'employee_id',
+        //     'username',
+        //   ],
+        // });
+        const shiftsQuery = this.loginSessionRepository
+          .createQueryBuilder('session')
+          .leftJoin(
+            'equipment',
+            'equipment',
+            'session.device_id = equipment.device_id',
+          )
+          .where(
+            'session.login_time BETWEEN :startDate AND :endDate AND session.station = :stationId',
+            {
+              startDate: startDate,
+              endDate: toDate,
+              stationId: station.id,
+            },
+          );
+
+        // Apply deviceIds filter if provided
+        if (deviceIds && deviceIds.length > 0) {
+          shiftsQuery.andWhere('session.device_id IN (:...deviceIds)', {
+            deviceIds,
+          });
+        }
+
+        // Apply deviceTypes filter if provided
+        if (deviceTypes && deviceTypes.length > 0) {
+          shiftsQuery.andWhere(
+            'equipment.equipment_type IN (:...deviceTypes)',
+            { deviceTypes },
+          );
+        }
+
+        // Execute the query to get the result
+        const sessions = await shiftsQuery
+          .leftJoinAndSelect('session.station', 'station')
+          .leftJoinAndSelect('session.user', 'user')
+          .select([
+            'session.id',
+            'session.device_id',
+            'session.station',
+            'session.shift_id',
+            'session.total_amount',
+            'session.cash_amount',
+            'session.upi_amount',
+            'session.no_of_tickets',
+            'session.no_of_tickets_cash',
+            'session.no_of_tickets_upi',
+            'session.no_of_refund',
+            'session.total_refund_amount',
+            'session.no_of_cancelled',
+            'session.total_cancelled_amount',
+            'session.login_time',
+            'session.logout_time',
+            'session.user',
+            'session.employee_id',
+            'user',
+            'session.username',
+          ])
+          .getOne();
+        if (sessions) {
+          data.push(sessions);
+        }
       }
-      console.log(where);
-      const sessions = await this.loginSessionRepository.find({
-        where,
-        relations: ['station', 'user'],
-        select: [
-          'id',
-          'device_id',
-          'station',
-          'shift_id',
-          'total_amount',
-          'cash_amount',
-          'upi_amount',
-          'no_of_tickets',
-          'no_of_tickets_cash',
-          'no_of_tickets_upi',
-          'no_of_refund',
-          'total_refund_amount',
-          'no_of_cancelled',
-          'total_cancelled_amount',
-          'login_time',
-          'logout_time',
-          'user',
-          'employee_id',
-          'username',
-        ],
-      });
-      return { data: sessions };
+      return { data: data };
     } catch (err) {
       console.log(err);
       throw new BadRequestException('Something went wrong');
