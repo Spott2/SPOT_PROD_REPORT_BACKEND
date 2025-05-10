@@ -14,6 +14,7 @@ import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { LoginSessionInput } from './commonTypes';
+import { CreateValidationRecordDto, UpdateValidationRecordDto, ValidationRecordFilterDto } from './dto/validation-records.dto';
 
 @Controller('reports')
 export class ReportsController {
@@ -560,5 +561,34 @@ export class ReportsController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.reportsService.remove(+id);
+  }
+
+  // ValidationRecords endpoints
+  @Post('validation-records')
+  createValidationRecord(@Body() createValidationRecordDto: CreateValidationRecordDto) {
+    return this.reportsService.createValidationRecord(createValidationRecordDto);
+  }
+
+  @Post('validation-records/find')
+  findAllValidationRecords(@Body() filterDto: ValidationRecordFilterDto) {
+    return this.reportsService.findAllValidationRecords(filterDto);
+  }
+
+  @Get('validation-records/:id')
+  findOneValidationRecord(@Param('id') id: string) {
+    return this.reportsService.findOneValidationRecord(+id);
+  }
+
+  @Patch('validation-records/:id')
+  updateValidationRecord(
+    @Param('id') id: string,
+    @Body() updateValidationRecordDto: UpdateValidationRecordDto,
+  ) {
+    return this.reportsService.updateValidationRecord(+id, updateValidationRecordDto);
+  }
+
+  @Delete('validation-records/:id')
+  removeValidationRecord(@Param('id') id: string) {
+    return this.reportsService.removeValidationRecord(+id);
   }
 }

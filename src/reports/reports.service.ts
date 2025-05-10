@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
-import { Repository, Between, ILike } from 'typeorm';
+import { Repository, Between, ILike, Like } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Equipment,
@@ -12,6 +12,7 @@ import {
   Closedloopdetails,
   Closedlooprechargehistory,
   Closedlooppenalty,
+  ValidationRecords,
 } from '@spot-demo/shared-entities';
 
 import {
@@ -24,6 +25,7 @@ import {
 import { Qr, LoginSession } from '@spot-demo/shared-entities';
 import axios from 'axios';
 import { LoginSessionInput } from './commonTypes';
+import { CreateValidationRecordDto, UpdateValidationRecordDto, ValidationRecordFilterDto } from './dto/validation-records.dto';
 
 @Injectable()
 export class ReportsService {
@@ -57,6 +59,9 @@ export class ReportsService {
 
     @InjectRepository(Closedlooppenalty)
     private closedlooppenalty: Repository<Closedlooppenalty>,
+
+    @InjectRepository(ValidationRecords)
+    private validationRecordsRepository: Repository<ValidationRecords>,
   ) {}
   create(createReportDto: CreateReportDto) {
     return 'This action adds a new report';
@@ -80,12 +85,12 @@ export class ReportsService {
       )
       .addSelect(
         `
-        SUM(CASE 
-            WHEN transaction.payment_mode ILIKE 'online' OR 
-                 transaction.payment_mode ILIKE 'credit_card' OR 
-                 transaction.payment_mode ILIKE 'upi' 
-            THEN transaction.amount 
-            ELSE 0 
+        SUM(CASE
+            WHEN transaction.payment_mode ILIKE 'online' OR
+                 transaction.payment_mode ILIKE 'credit_card' OR
+                 transaction.payment_mode ILIKE 'upi'
+            THEN transaction.amount
+            ELSE 0
         END)
         `,
         'total_online',
@@ -117,11 +122,11 @@ export class ReportsService {
 
       const earningsData = await this.closedloopRepository
       .createQueryBuilder('fare')
-      .select('SUM(CAST(fare.fare AS numeric))', 'total_earnings')  
+      .select('SUM(CAST(fare.fare AS numeric))', 'total_earnings')
       .where('fare.created_at::date = :currentDate', { currentDate })
       .andWhere('fare.destinationId IS NOT NULL')
       .getRawOne();
-  
+
 
     const totalRecharge = rechargeData
       ? Number(rechargeData.total_recharge)
@@ -216,12 +221,12 @@ export class ReportsService {
           )
           .addSelect(
             `
-            SUM(CASE 
-                WHEN transaction.payment_mode ILIKE 'online' OR 
-                     transaction.payment_mode ILIKE 'credit_card' OR 
-                     transaction.payment_mode ILIKE 'upi' 
-                THEN transaction.amount 
-                ELSE 0 
+            SUM(CASE
+                WHEN transaction.payment_mode ILIKE 'online' OR
+                     transaction.payment_mode ILIKE 'credit_card' OR
+                     transaction.payment_mode ILIKE 'upi'
+                THEN transaction.amount
+                ELSE 0
             END)
             `,
             'total_online',
@@ -304,12 +309,12 @@ export class ReportsService {
             )
             .addSelect(
               `
-              SUM(CASE 
-                  WHEN transaction.payment_mode ILIKE 'online' OR 
-                       transaction.payment_mode ILIKE 'credit_card' OR 
-                       transaction.payment_mode ILIKE 'upi' 
-                  THEN transaction.amount 
-                  ELSE 0 
+              SUM(CASE
+                  WHEN transaction.payment_mode ILIKE 'online' OR
+                       transaction.payment_mode ILIKE 'credit_card' OR
+                       transaction.payment_mode ILIKE 'upi'
+                  THEN transaction.amount
+                  ELSE 0
               END)
               `,
               'total_online',
@@ -713,12 +718,12 @@ export class ReportsService {
           )
           .addSelect(
             `
-            SUM(CASE 
-                WHEN transaction.payment_mode ILIKE 'online' OR 
-                     transaction.payment_mode ILIKE 'credit_card' OR 
-                     transaction.payment_mode ILIKE 'upi' 
-                THEN transaction.amount 
-                ELSE 0 
+            SUM(CASE
+                WHEN transaction.payment_mode ILIKE 'online' OR
+                     transaction.payment_mode ILIKE 'credit_card' OR
+                     transaction.payment_mode ILIKE 'upi'
+                THEN transaction.amount
+                ELSE 0
             END)
             `,
             'total_online',
@@ -818,12 +823,12 @@ export class ReportsService {
           )
           .addSelect(
             `
-            SUM(CASE 
-                WHEN transaction.payment_mode ILIKE 'online' OR 
-                     transaction.payment_mode ILIKE 'credit_card' OR 
-                     transaction.payment_mode ILIKE 'upi' 
-                THEN transaction.amount 
-                ELSE 0 
+            SUM(CASE
+                WHEN transaction.payment_mode ILIKE 'online' OR
+                     transaction.payment_mode ILIKE 'credit_card' OR
+                     transaction.payment_mode ILIKE 'upi'
+                THEN transaction.amount
+                ELSE 0
             END)
             `,
             'total_online',
@@ -1045,10 +1050,10 @@ export class ReportsService {
         'DATE(transaction.created_at) AS date',
         'COALESCE(SUM(transaction.amount), 0) AS total_amount',
         "COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'cash' THEN transaction.amount ELSE 0 END), 0) AS total_cash",
-        `COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'credit_card' 
-          OR transaction.payment_mode ILIKE 'upi' 
-          OR transaction.payment_mode ILIKE 'online' 
-          THEN transaction.amount 
+        `COALESCE(SUM(CASE WHEN transaction.payment_mode ILIKE 'credit_card'
+          OR transaction.payment_mode ILIKE 'upi'
+          OR transaction.payment_mode ILIKE 'online'
+          THEN transaction.amount
           ELSE 0 END), 0) AS total_online`,
       ])
       .where('transaction.created_at BETWEEN :start AND :end', {
@@ -2157,8 +2162,8 @@ export class ReportsService {
               `SUM(
         CASE
           WHEN transaction.payment_mode = :cash
-          THEN ROUND(CAST(transaction.amount AS NUMERIC) / 
-            (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s) * 
+          THEN ROUND(CAST(transaction.amount AS NUMERIC) /
+            (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s) *
             (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s WHERE s IN ('active', 'entry', 'exit')),2)
           ELSE 0
         END
@@ -2168,8 +2173,8 @@ export class ReportsService {
               `SUM(
         CASE
           WHEN transaction.payment_mode = :upi
-          THEN ROUND(CAST(transaction.amount AS NUMERIC) / 
-            (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s) * 
+          THEN ROUND(CAST(transaction.amount AS NUMERIC) /
+            (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s) *
             (SELECT COUNT(*) FROM unnest(string_to_array(transaction.status, ',')) AS s WHERE s IN ('active', 'entry', 'exit')),2)
           ELSE 0
         END
@@ -2958,5 +2963,181 @@ export class ReportsService {
 
   remove(id: number) {
     return `This action removes a #${id} report`;
+  }
+
+  // ValidationRecords CRUD operations
+  async createValidationRecord(createValidationRecordDto: CreateValidationRecordDto) {
+    try {
+      const validationRecord = this.validationRecordsRepository.create(createValidationRecordDto);
+      const savedRecord = await this.validationRecordsRepository.save(validationRecord);
+
+      return {
+        success: true,
+        message: 'Validation record created successfully',
+        data: savedRecord,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to create validation record',
+        error: error.message,
+      };
+    }
+  }
+
+  async findAllValidationRecords(filterDto: ValidationRecordFilterDto) {
+    try {
+      const {
+        fromDate,
+        toDate,
+        serialno,
+        type,
+        media,
+        station_id,
+        page = 1,
+        limit = 10
+      } = filterDto;
+
+      const queryBuilder = this.validationRecordsRepository
+        .createQueryBuilder('validation')
+        .leftJoinAndSelect('validation.station', 'station');
+
+      if (fromDate) {
+        queryBuilder.andWhere('validation.datetime >= :fromDate', { fromDate });
+      }
+
+      if (toDate) {
+        queryBuilder.andWhere('validation.datetime <= :toDate', { toDate });
+      }
+
+      if (serialno) {
+        queryBuilder.andWhere('validation.serialno ILIKE :serialno', { serialno: `%${serialno}%` });
+      }
+
+      if (type) {
+        queryBuilder.andWhere('validation.type = :type', { type });
+      }
+
+      if (media) {
+        queryBuilder.andWhere('validation.media = :media', { media });
+      }
+
+      if (station_id) {
+        queryBuilder.andWhere('validation.station_id = :station_id', { station_id });
+      }
+
+      const total = await queryBuilder.getCount();
+
+      const skip = (page - 1) * limit;
+      queryBuilder.skip(skip).take(limit);
+      queryBuilder.orderBy('validation.datetime', 'DESC');
+
+      const records = await queryBuilder.getMany();
+
+      return {
+        success: true,
+        message: 'Successfully retrieved validation records',
+        data: records,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve validation records',
+        error: error.message,
+      };
+    }
+  }
+
+  async findOneValidationRecord(id: number) {
+    try {
+      const record = await this.validationRecordsRepository.findOne({
+        where: { id },
+        relations: ['station'],
+      });
+
+      if (!record) {
+        return {
+          success: false,
+          message: `Validation record with ID ${id} not found`,
+        };
+      }
+
+      return {
+        success: true,
+        data: record,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve validation record',
+        error: error.message,
+      };
+    }
+  }
+
+  async updateValidationRecord(id: number, updateValidationRecordDto: UpdateValidationRecordDto) {
+    try {
+      const record = await this.validationRecordsRepository.findOne({
+        where: { id },
+      });
+
+      if (!record) {
+        return {
+          success: false,
+          message: `Validation record with ID ${id} not found`,
+        };
+      }
+
+      await this.validationRecordsRepository.update(id, updateValidationRecordDto);
+
+      const updatedRecord = await this.validationRecordsRepository.findOne({
+        where: { id },
+        relations: ['station'],
+      });
+
+      return {
+        success: true,
+        message: 'Validation record updated successfully',
+        data: updatedRecord,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to update validation record',
+        error: error.message,
+      };
+    }
+  }
+
+  async removeValidationRecord(id: number) {
+    try {
+      const record = await this.validationRecordsRepository.findOne({
+        where: { id },
+      });
+
+      if (!record) {
+        return {
+          success: false,
+          message: `Validation record with ID ${id} not found`,
+        };
+      }
+
+      await this.validationRecordsRepository.remove(record);
+
+      return {
+        success: true,
+        message: 'Validation record deleted successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to delete validation record',
+        error: error.message,
+      };
+    }
   }
 }
