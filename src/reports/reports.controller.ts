@@ -575,6 +575,11 @@ export class ReportsController {
     return this.reportsService.findAllValidationRecords(filterDto);
   }
 
+   @Get('validation-records/entry-exit-count')
+  getValidationRecordsEntryExitCount() {
+    return this.reportsService.getValidationRecordsEntryExitCount();
+  }
+
   @Get('validation-records/:id')
   findOneValidationRecord(@Param('id') id: string) {
     return this.reportsService.findOneValidationRecord(+id);
@@ -598,8 +603,5 @@ export class ReportsController {
     return this.reportsService.getStationPenaltyReport(reportDto);
   }
 
-  @Get('validation-records/entry-exit-count')
-  getValidationRecordsEntryExitCount() {
-    return this.reportsService.getValidationRecordsEntryExitCount();
-  }
+ 
 }

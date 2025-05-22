@@ -3089,7 +3089,7 @@ export class ReportsService {
     try {
       const record = await this.validationRecordsRepository.findOne({
         where: { id },
-        relations: ['station', 'sourceStation', 'destStation'],
+        relations: ['station', 'source', 'dest'],
       });
 
       if (!record) {
@@ -3147,7 +3147,7 @@ export class ReportsService {
 
       const updatedRecord = await this.validationRecordsRepository.findOne({
         where: { id },
-        relations: ['station', 'sourceStation', 'destStation'],
+        relations: ['station', 'source', 'dest'],
       });
 
       return {
@@ -3285,25 +3285,48 @@ export class ReportsService {
    * Get total entry and exit count from validation records for current date
    */
   async getValidationRecordsEntryExitCount() {
+   
     try {
-      const currentDate = new Date().toISOString().split('T')[0];
+      const currentDate = new Date();
+      const startOfDay = new Date(currentDate);
+      startOfDay.setHours(0, 0, 0, 0);
 
-      const result = await this.validationRecordsRepository
+      const endOfDay = new Date(currentDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      // Get entry count
+      const entryCount = await this.validationRecordsRepository
         .createQueryBuilder('validation')
-        .select('COUNT(CASE WHEN UPPER(validation.type) = \'ENTRY\' THEN 1 END)', 'total_entry_count')
-        .addSelect('COUNT(CASE WHEN UPPER(validation.type) = \'EXIT\' THEN 1 END)', 'total_exit_count')
-        .addSelect('COUNT(*)', 'total_records')
-        .where('DATE(validation.created_at) = :currentDate', { currentDate })
-        .getRawOne();
+        .where('UPPER(validation.type) = :type', { type: 'ENTRY' })
+        .andWhere('validation.created_at >= :startOfDay', { startOfDay })
+        .andWhere('validation.created_at <= :endOfDay', { endOfDay })
+        .getCount();
+
+        console.log(entryCount)
+
+      // Get exit count
+      const exitCount = await this.validationRecordsRepository
+        .createQueryBuilder('validation')
+        .where('UPPER(validation.type) = :type', { type: 'EXIT' })
+        .andWhere('validation.created_at >= :startOfDay', { startOfDay })
+        .andWhere('validation.created_at <= :endOfDay', { endOfDay })
+        .getCount();
+
+      // Get total count
+      const totalCount = await this.validationRecordsRepository
+        .createQueryBuilder('validation')
+        .where('validation.created_at >= :startOfDay', { startOfDay })
+        .andWhere('validation.created_at <= :endOfDay', { endOfDay })
+        .getCount();
 
       return {
         success: true,
         message: 'Successfully retrieved validation records entry/exit count for current date',
         data: {
-          date: currentDate,
-          total_entry_count: parseInt(result.total_entry_count) || 0,
-          total_exit_count: parseInt(result.total_exit_count) || 0,
-          total_records: parseInt(result.total_records) || 0,
+          date: currentDate.toISOString().split('T')[0],
+          total_entry_count: entryCount,
+          total_exit_count: exitCount,
+          total_records: totalCount,
         }
       };
     } catch (error) {
