@@ -246,19 +246,28 @@ export class ReportsService {
           .andWhere('transaction.station = :stationId', { stationId })
           .getRawOne();
 
-      // Qr query for entry and exit counts
-      const qrData = await this.qrRepository
-        .createQueryBuilder('qr')
-        .select('COALESCE(SUM(qr.entry_count), 0)', 'total_entry_count')
-        .addSelect('COALESCE(SUM(qr.exit_count), 0)', 'total_exit_count')
-        .where('qr.qr_date_time BETWEEN :day AND :nextDay', {
+      // ValidationRecords query for entry and exit counts
+      // Entry count: where source = stationId and type = 'ENTRY'
+      const entryCount = await this.validationRecordsRepository
+        .createQueryBuilder('validation')
+        .where('validation.source = :stationId', { stationId })
+        .andWhere('UPPER(validation.type) = :type', { type: 'ENTRY' })
+        .andWhere('validation.created_at BETWEEN :day AND :nextDay', {
           day: day.toISOString(),
           nextDay: nextDay.toISOString(),
         })
-        .andWhere('(qr.source_id = :stationId OR qr.source_id = :stationId)', {
-          stationId,
+        .getCount();
+
+      // Exit count: where dest = stationId and type = 'EXIT'
+      const exitCount = await this.validationRecordsRepository
+        .createQueryBuilder('validation')
+        .where('validation.dest = :stationId', { stationId })
+        .andWhere('UPPER(validation.type) = :type', { type: 'EXIT' })
+        .andWhere('validation.created_at BETWEEN :day AND :nextDay', {
+          day: day.toISOString(),
+          nextDay: nextDay.toISOString(),
         })
-        .getRawOne();
+        .getCount();
 
       past7Days.push({
         date: formatDate(day),
@@ -268,8 +277,8 @@ export class ReportsService {
         total_no_of_tickets: total_no_of_tickets
           ? Number(total_no_of_tickets)
           : 0,
-        total_entry_count: parseInt(qrData.total_entry_count, 10),
-        total_exit_count: parseInt(qrData.total_exit_count, 10),
+        total_entry_count: entryCount,
+        total_exit_count: exitCount,
       });
     }
 
@@ -3285,7 +3294,7 @@ export class ReportsService {
    * Get total entry and exit count from validation records for current date
    */
   async getValidationRecordsEntryExitCount() {
-   
+
     try {
       const currentDate = new Date();
       const startOfDay = new Date(currentDate);
