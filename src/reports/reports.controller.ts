@@ -597,4 +597,9 @@ export class ReportsController {
   getStationPenaltyReport(@Body() reportDto: PenaltyReportDto) {
     return this.reportsService.getStationPenaltyReport(reportDto);
   }
+
+  @Get('validation-records/entry-exit-count')
+  getValidationRecordsEntryExitCount() {
+    return this.reportsService.getValidationRecordsEntryExitCount();
+  }
 }

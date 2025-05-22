@@ -129,6 +129,7 @@ export class ReportsService {
       .getRawOne();
 
 
+
     const totalRecharge = rechargeData
       ? Number(rechargeData.total_recharge)
       : 0;
@@ -178,6 +179,8 @@ export class ReportsService {
       data: sortedAnalytics,
     };
   }
+
+
 
   async getDashboardAnalyticsByStation(stationId: number) {
     const station = await this.stationRepository.findOne({
@@ -2036,38 +2039,41 @@ export class ReportsService {
 
       const stationData = await Promise.all(
         stations.map(async (station) => {
-          const entryCount = await this.qrRepository
-            .createQueryBuilder('qr')
-            .where('qr.source_id = :sourceId', { sourceId: station.id })
-            .andWhere('qr.created_at BETWEEN :fromDate AND :toDate', {
+          // Count entries where source station matches station_id and type is 'ENTRY'
+          const entryCount = await this.validationRecordsRepository
+            .createQueryBuilder('validation')
+            .where('validation.source = :stationId', { stationId: station.id })
+            .andWhere('UPPER(validation.type) = :type', { type: 'ENTRY' })
+            .andWhere('validation.created_at BETWEEN :fromDate AND :toDate', {
               fromDate,
               toDate,
             })
-            .select('SUM(qr.entry_count)', 'totalEntryCount')
+            .select('COUNT(*)', 'totalEntryCount')
             .getRawOne();
 
-          const exitCount = await this.qrRepository
-            .createQueryBuilder('qr')
-            .where('qr.destination_id = :destinationId', {
-              destinationId: station.id,
-            })
-            .andWhere('qr.created_at BETWEEN :fromDate AND :toDate', {
+          // Count exits where dest station matches station_id and type is 'EXIT'
+          const exitCount = await this.validationRecordsRepository
+            .createQueryBuilder('validation')
+            .where('validation.dest = :stationId', { stationId: station.id })
+            .andWhere('UPPER(validation.type) = :type', { type: 'EXIT' })
+            .andWhere('validation.created_at BETWEEN :fromDate AND :toDate', {
               fromDate,
               toDate,
             })
-            .select('SUM(qr.exit_count)', 'totalExitCount')
+            .select('COUNT(*)', 'totalExitCount')
             .getRawOne();
 
           return {
             ...station,
-            entryCount: entryCount.totalEntryCount || 0,
-            exitCount: exitCount.totalExitCount || 0,
+            entryCount: parseInt(entryCount.totalEntryCount) || 0,
+            exitCount: parseInt(exitCount.totalExitCount) || 0,
           };
         }),
       );
 
       return {
         success: true,
+        message: 'Successfully retrieved ridership data from validation records',
         data: stationData,
       };
     } catch (error) {
@@ -3270,6 +3276,40 @@ export class ReportsService {
       return {
         success: false,
         message: 'Failed to generate station-wise penalty report',
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Get total entry and exit count from validation records for current date
+   */
+  async getValidationRecordsEntryExitCount() {
+    try {
+      const currentDate = new Date().toISOString().split('T')[0];
+
+      const result = await this.validationRecordsRepository
+        .createQueryBuilder('validation')
+        .select('COUNT(CASE WHEN UPPER(validation.type) = \'ENTRY\' THEN 1 END)', 'total_entry_count')
+        .addSelect('COUNT(CASE WHEN UPPER(validation.type) = \'EXIT\' THEN 1 END)', 'total_exit_count')
+        .addSelect('COUNT(*)', 'total_records')
+        .where('DATE(validation.created_at) = :currentDate', { currentDate })
+        .getRawOne();
+
+      return {
+        success: true,
+        message: 'Successfully retrieved validation records entry/exit count for current date',
+        data: {
+          date: currentDate,
+          total_entry_count: parseInt(result.total_entry_count) || 0,
+          total_exit_count: parseInt(result.total_exit_count) || 0,
+          total_records: parseInt(result.total_records) || 0,
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve validation records entry/exit count',
         error: error.message,
       };
     }
