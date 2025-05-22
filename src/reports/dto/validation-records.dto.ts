@@ -1,17 +1,13 @@
 import { IsDate, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateValidationRecordDto {
-  @IsDate()
-  @IsNotEmpty()
-  created_at: Date;
-
   @IsNumber()
   @IsNotEmpty()
-  source: number;
+  source: number; // ID of the source station
 
   @IsNumber()
   @IsOptional()
-  dest?: number;
+  dest?: number; // ID of the destination station
 
   @IsNumber()
   @IsOptional()
@@ -43,17 +39,13 @@ export class CreateValidationRecordDto {
 }
 
 export class UpdateValidationRecordDto {
-  @IsDate()
+  @IsNumber()
   @IsOptional()
-  datetime?: Date;
+  source?: number; // ID of the source station
 
   @IsNumber()
   @IsOptional()
-  source?: number;
-
-  @IsNumber()
-  @IsOptional()
-  dest?: number;
+  dest?: number; // ID of the destination station
 
   @IsNumber()
   @IsOptional()

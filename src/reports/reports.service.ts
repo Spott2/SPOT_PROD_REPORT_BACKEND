@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
-import { Repository, Between, ILike, Like } from 'typeorm';
+import { Repository, Between, ILike, Like, MoreThanOrEqual, LessThanOrEqual, In } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Equipment,
@@ -26,6 +26,7 @@ import { Qr, LoginSession } from '@spot-demo/shared-entities';
 import axios from 'axios';
 import { LoginSessionInput } from './commonTypes';
 import { CreateValidationRecordDto, UpdateValidationRecordDto, ValidationRecordFilterDto } from './dto/validation-records.dto';
+import { PenaltyReportDto, StationPenaltyReport } from './dto/penalty-report.dto';
 
 @Injectable()
 export class ReportsService {
@@ -2968,7 +2969,17 @@ export class ReportsService {
   // ValidationRecords CRUD operations
   async createValidationRecord(createValidationRecordDto: CreateValidationRecordDto) {
     try {
-      const validationRecord = this.validationRecordsRepository.create(createValidationRecordDto);
+      // Create a new validation record with proper relations
+      const { source: sourceId, dest: destId, ...restDto } = createValidationRecordDto;
+
+      // Prepare the entity with relations
+      const validationRecord = this.validationRecordsRepository.create({
+        ...restDto,
+        source: sourceId ? { id: sourceId } : null,
+        dest: destId ? { id: destId } : null,
+        station: { id: createValidationRecordDto.station_id }
+      });
+
       const savedRecord = await this.validationRecordsRepository.save(validationRecord);
 
       return {
@@ -2994,20 +3005,22 @@ export class ReportsService {
         type,
         media,
         station_id,
-        page = 1,
-        limit = 10
+        page,
+        limit
       } = filterDto;
 
       const queryBuilder = this.validationRecordsRepository
         .createQueryBuilder('validation')
-        .leftJoinAndSelect('validation.station', 'station');
+        .leftJoinAndSelect('validation.station', 'station')
+        .leftJoinAndSelect('validation.source', 'source')
+        .leftJoinAndSelect('validation.dest', 'dest');
 
       if (fromDate) {
-        queryBuilder.andWhere('validation.datetime >= :fromDate', { fromDate });
+        queryBuilder.andWhere('validation.created_at >= :fromDate', { fromDate });
       }
 
       if (toDate) {
-        queryBuilder.andWhere('validation.datetime <= :toDate', { toDate });
+        queryBuilder.andWhere('validation.created_at <= :toDate', { toDate });
       }
 
       if (serialno) {
@@ -3015,34 +3028,48 @@ export class ReportsService {
       }
 
       if (type) {
-        queryBuilder.andWhere('validation.type = :type', { type });
+        queryBuilder.andWhere('validation.type ILIKE :type', { type });
       }
 
       if (media) {
-        queryBuilder.andWhere('validation.media = :media', { media });
+        queryBuilder.andWhere('validation.media ILIKE :media', { media });
       }
 
       if (station_id) {
         queryBuilder.andWhere('validation.station_id = :station_id', { station_id });
       }
 
-      const total = await queryBuilder.getCount();
+      // Always order by datetime descending
+      queryBuilder.orderBy('validation.created_at', 'DESC');
 
-      const skip = (page - 1) * limit;
-      queryBuilder.skip(skip).take(limit);
-      queryBuilder.orderBy('validation.datetime', 'DESC');
+      // Apply pagination only if both page and limit are provided
+      if (page !== undefined && limit !== undefined) {
+        const skip = (page - 1) * limit;
+        queryBuilder.skip(skip).take(limit);
 
-      const records = await queryBuilder.getMany();
+        const total = await queryBuilder.getCount();
+        const records = await queryBuilder.getMany();
 
-      return {
-        success: true,
-        message: 'Successfully retrieved validation records',
-        data: records,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      };
+        return {
+          success: true,
+          message: 'Successfully retrieved validation records',
+          data: records,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        };
+      } else {
+        // If pagination is not requested, return all records
+        const records = await queryBuilder.getMany();
+
+        return {
+          success: true,
+          message: 'Successfully retrieved validation records',
+          data: records,
+          total: records.length
+        };
+      }
     } catch (error) {
       return {
         success: false,
@@ -3056,7 +3083,7 @@ export class ReportsService {
     try {
       const record = await this.validationRecordsRepository.findOne({
         where: { id },
-        relations: ['station'],
+        relations: ['station', 'sourceStation', 'destStation'],
       });
 
       if (!record) {
@@ -3092,11 +3119,29 @@ export class ReportsService {
         };
       }
 
-      await this.validationRecordsRepository.update(id, updateValidationRecordDto);
+      // Extract source and dest IDs and prepare the update data
+      const { source: sourceId, dest: destId, ...restDto } = updateValidationRecordDto;
+
+      // Prepare the update data with proper relations
+      const updateData: any = { ...restDto };
+
+      if (sourceId !== undefined) {
+        updateData.source = sourceId ? { id: sourceId } : null;
+      }
+
+      if (destId !== undefined) {
+        updateData.dest = destId ? { id: destId } : null;
+      }
+
+      if (updateValidationRecordDto.station_id !== undefined) {
+        updateData.station = { id: updateValidationRecordDto.station_id };
+      }
+
+      await this.validationRecordsRepository.update(id, updateData);
 
       const updatedRecord = await this.validationRecordsRepository.findOne({
         where: { id },
-        relations: ['station'],
+        relations: ['station', 'sourceStation', 'destStation'],
       });
 
       return {
@@ -3136,6 +3181,95 @@ export class ReportsService {
       return {
         success: false,
         message: 'Failed to delete validation record',
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Generate a station-wise penalty report categorized by payment mode (CASH, UPI, CARD)
+   */
+  async getStationPenaltyReport(reportDto: PenaltyReportDto) {
+    try {
+      const { fromDate, toDate, stations: stationIds } = reportDto;
+
+      // Get stations based on provided IDs or all active stations
+      const stations = stationIds && stationIds.length > 0
+        ? await this.stationRepository.find({
+            where: { is_active: true, id: In(stationIds) },
+            order: { id: 'ASC' },
+          })
+        : await this.stationRepository.find({
+            where: { is_active: true },
+            order: { id: 'ASC' },
+          });
+
+      // Generate report for each station
+      const stationReports: StationPenaltyReport[] = await Promise.all(
+        stations.map(async (station) => {
+          // Create query to get penalty amounts by payment mode
+          const query = this.penaltyRepository
+            .createQueryBuilder('penalty')
+            .select('SUM(penalty.amount)', 'total_amount')
+            .addSelect(
+              `SUM(CASE WHEN LOWER(penalty.payment_mode) = 'cash' THEN penalty.amount ELSE 0 END)`,
+              'cash_amount'
+            )
+            .addSelect(
+              `SUM(CASE WHEN LOWER(penalty.payment_mode) = 'upi' THEN penalty.amount ELSE 0 END)`,
+              'upi_amount'
+            )
+            .addSelect(
+              `SUM(CASE WHEN LOWER(penalty.payment_mode) = 'card' THEN penalty.amount ELSE 0 END)`,
+              'card_amount'
+            )
+            .where('penalty.station_id = :stationId', { stationId: station.id });
+
+          // Apply date filters if provided
+          if (fromDate) {
+            query.andWhere('penalty.created_at >= :fromDate', { fromDate });
+          }
+
+          if (toDate) {
+            query.andWhere('penalty.created_at <= :toDate', { toDate });
+          }
+
+          // Execute the query
+          const result = await query.getRawOne();
+
+          // Return the station report
+          return {
+            station_id: station.id,
+            station_name: station.station_name,
+            total_amount: Number(result.total_amount) || 0,
+            cash_amount: Number(result.cash_amount) || 0,
+            upi_amount: Number(result.upi_amount) || 0,
+            card_amount: Number(result.card_amount) || 0,
+          };
+        })
+      );
+
+      // Calculate totals
+      const totalAmount = stationReports.reduce((sum, report) => sum + report.total_amount, 0);
+      const totalCash = stationReports.reduce((sum, report) => sum + report.cash_amount, 0);
+      const totalUpi = stationReports.reduce((sum, report) => sum + report.upi_amount, 0);
+      const totalCard = stationReports.reduce((sum, report) => sum + report.card_amount, 0);
+
+      return {
+        success: true,
+        message: 'Successfully generated station-wise penalty report',
+        data: stationReports,
+        summary: {
+          total_amount: totalAmount,
+          cash_amount: totalCash,
+          upi_amount: totalUpi,
+          card_amount: totalCard,
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to generate station-wise penalty report',
         error: error.message,
       };
     }

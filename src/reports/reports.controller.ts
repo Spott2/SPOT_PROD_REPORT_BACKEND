@@ -15,6 +15,7 @@ import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { LoginSessionInput } from './commonTypes';
 import { CreateValidationRecordDto, UpdateValidationRecordDto, ValidationRecordFilterDto } from './dto/validation-records.dto';
+import { PenaltyReportDto } from './dto/penalty-report.dto';
 
 @Controller('reports')
 export class ReportsController {
@@ -590,5 +591,10 @@ export class ReportsController {
   @Delete('validation-records/:id')
   removeValidationRecord(@Param('id') id: string) {
     return this.reportsService.removeValidationRecord(+id);
+  }
+
+  @Post('station-penalty-report')
+  getStationPenaltyReport(@Body() reportDto: PenaltyReportDto) {
+    return this.reportsService.getStationPenaltyReport(reportDto);
   }
 }
