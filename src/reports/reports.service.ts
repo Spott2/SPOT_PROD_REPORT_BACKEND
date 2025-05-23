@@ -3346,4 +3346,17 @@ export class ReportsService {
       };
     }
   }
+
+  async createValidationRecords(createValidationRecordDtos: CreateValidationRecordDto[]) {
+    const results = [];
+    for (const dto of createValidationRecordDtos) {
+      const result = await this.createValidationRecord(dto);
+      results.push(result);
+    }
+    return {
+      success: true,
+      message: 'Validation records created successfully',
+      data: results,
+    };
+  }
 }

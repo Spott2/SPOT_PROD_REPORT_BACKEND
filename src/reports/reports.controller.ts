@@ -566,8 +566,12 @@ export class ReportsController {
 
   // ValidationRecords endpoints
   @Post('validation-records')
-  createValidationRecord(@Body() createValidationRecordDto: CreateValidationRecordDto) {
-    return this.reportsService.createValidationRecord(createValidationRecordDto);
+  createValidationRecord(@Body() createValidationRecordDto: CreateValidationRecordDto | CreateValidationRecordDto[]) {
+    if (Array.isArray(createValidationRecordDto)) {
+      return this.reportsService.createValidationRecords(createValidationRecordDto);
+    } else {
+      return this.reportsService.createValidationRecord(createValidationRecordDto);
+    }
   }
 
   @Post('validation-records/find')
