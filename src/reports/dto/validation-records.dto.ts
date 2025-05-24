@@ -74,6 +74,18 @@ export class UpdateValidationRecordDto {
   @IsNumber()
   @IsOptional()
   station_id?: number;
+
+  @IsNumber()
+  @IsOptional()
+  balance?: number;
+
+  @IsString()
+  @IsOptional()
+  Error?: string;
+
+  @IsString()
+  @IsOptional()
+  qr_date?: string;
 }
 
 export class ValidationRecordFilterDto {
