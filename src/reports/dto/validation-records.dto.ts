@@ -22,6 +22,14 @@ export class CreateValidationRecordDto {
   serialno: string;
 
   @IsString()
+  @IsOptional()
+  shift_id?: string;
+  
+  @IsString()
+  @IsOptional()
+  operator_id?: string;
+
+  @IsString()
   @IsNotEmpty()
   type: string; // entry, exit
 
@@ -70,6 +78,14 @@ export class UpdateValidationRecordDto {
   @IsString()
   @IsOptional()
   deviceid?: string;
+
+  @IsString()
+  @IsOptional()
+  shift_id?: string;
+
+  @IsString()
+  @IsOptional()
+  operator_id?: string;
 
   @IsNumber()
   @IsOptional()
