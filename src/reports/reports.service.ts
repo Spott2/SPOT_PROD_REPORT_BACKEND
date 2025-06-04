@@ -2872,48 +2872,110 @@ export class ReportsService {
   }
 
   async shipReport(payload: any) {
-    const {
-      station,
-      user,
-      cash_amount,
-      device_id,
-      login_time,
-      logout_time,
-      no_of_cancelled,
-      no_of_refund,
-      no_of_tickets,
-      no_of_tickets_cash,
-      no_of_tickets_upi,
-      fine_amount,
-      fine_count,
-      shift_id,
-      total_amount,
-      total_cancelled_amount,
-      total_refund_amount,
-      upi_amount,
-    } = payload;
-    const session = this.loginSessionRepository.create({
-      station: { id: station },
-      user: { id: user },
-      cash_amount,
-      device_id,
-      login_time,
-      logout_time,
-      no_of_cancelled,
-      no_of_refund,
-      no_of_tickets,
-      no_of_tickets_cash,
-      no_of_tickets_upi,
-      fine_amount,
-      fine_count,
-      shift_id,
-      total_amount,
-      total_cancelled_amount,
-      total_refund_amount,
-      upi_amount,
-    });
-    const savedSession = await this.loginSessionRepository.save(session);
-    return savedSession;
+    try {
+      const {
+        station,
+        user,
+        cash_amount,
+        device_id,
+        login_time,
+        logout_time,
+        no_of_cancelled,
+        no_of_refund,
+        no_of_tickets,
+        no_of_tickets_cash,
+        no_of_tickets_upi,
+        fine_amount,
+        fine_count,
+        shift_id,
+        total_amount,
+        total_cancelled_amount,
+        total_refund_amount,
+        upi_amount,
+      } = payload;
+
+      // Check if a session with the same shift_id already exists
+      const existingSession = await this.loginSessionRepository.findOne({
+        where: { shift_id },
+        relations: ['station', 'user'],
+      });
+
+      if (existingSession) {
+        // Update existing session
+        await this.loginSessionRepository.update(
+          { shift_id },
+          {
+            station: { id: station },
+            user: { id: user },
+            cash_amount,
+            device_id,
+            login_time,
+            logout_time,
+            no_of_cancelled,
+            no_of_refund,
+            no_of_tickets,
+            no_of_tickets_cash,
+            no_of_tickets_upi,
+            fine_amount,
+            fine_count,
+            total_amount,
+            total_cancelled_amount,
+            total_refund_amount,
+            upi_amount,
+          }
+        );
+
+        // Fetch the updated session
+        const updatedSession = await this.loginSessionRepository.findOne({
+          where: { shift_id },
+          relations: ['station', 'user'],
+        });
+
+        return {
+          success: true,
+          message: 'Shift report updated successfully',
+          data: updatedSession,
+          action: 'updated',
+        };
+      } else {
+        // Create new session
+        const session = this.loginSessionRepository.create({
+          station: { id: station },
+          user: { id: user },
+          cash_amount,
+          device_id,
+          login_time,
+          logout_time,
+          no_of_cancelled,
+          no_of_refund,
+          no_of_tickets,
+          no_of_tickets_cash,
+          no_of_tickets_upi,
+          fine_amount,
+          fine_count,
+          shift_id,
+          total_amount,
+          total_cancelled_amount,
+          total_refund_amount,
+          upi_amount,
+        });
+
+        const savedSession = await this.loginSessionRepository.save(session);
+
+        return {
+          success: true,
+          message: 'Shift report created successfully',
+          data: savedSession,
+          action: 'created',
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to process shift report',
+        error: error.message,
+      };
+    }
   }
 
   async findShiftReport(payload: {
