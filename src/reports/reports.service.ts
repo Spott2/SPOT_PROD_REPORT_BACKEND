@@ -27,6 +27,8 @@ import axios from 'axios';
 import { LoginSessionInput } from './commonTypes';
 import { CreateValidationRecordDto, UpdateValidationRecordDto, ValidationRecordFilterDto } from './dto/validation-records.dto';
 import { PenaltyReportDto, StationPenaltyReport } from './dto/penalty-report.dto';
+import { CommonTransactionReportDto, CommonTransactionItem } from './dto/common-transaction-report.dto';
+import { ShiftReportDto } from './dto/shift-report.dto';
 
 @Injectable()
 export class ReportsService {
@@ -2775,123 +2777,131 @@ export class ReportsService {
   // }
 
   async getCollectionReportByStation(date, station_id) {
-    const startDate = new Date(date);
-    const endDate = new Date(date);
-    startDate.setUTCHours(0, 0, 0, 0);
-    endDate.setUTCHours(23, 59, 59, 999);
+    // const startDate = new Date(date);
+    // const endDate = new Date(date);
+    // startDate.setUTCHours(0, 0, 0, 0);
+    // endDate.setUTCHours(23, 59, 59, 999);
 
-    const equipmentRes = await this.equipmentRepository.find({
-      select: ['device_name'],
-    });
-    const deviceTypes = equipmentRes.map((equipment) => equipment.device_name);
-    // console.log('a', equipmentRes);
+    // const equipmentRes = await this.equipmentRepository.find({
+    //   select: ['device_name'],
+    // });
+    // const deviceTypes = equipmentRes.map((equipment) => equipment.device_name);
+    // // console.log('a', equipmentRes);
 
-    if (!deviceTypes || deviceTypes.length === 0) {
-      throw new Error('No devices found in the equipment API response.');
-    }
+    // if (!deviceTypes || deviceTypes.length === 0) {
+    //   throw new Error('No devices found in the equipment API response.');
+    // }
 
-    const stations = await this.stationRepository.find({
-      select: ['id', 'station_name'],
-      order: { id: 'ASC' },
-    });
+    // const stations = await this.stationRepository.find({
+    //   select: ['id', 'station_name'],
+    //   order: { id: 'ASC' },
+    // });
 
-    const stationsArr = [];
+    // const stationsArr = [];
 
-    for (const station of stations) {
-      if (station_id && station.id !== station_id) {
-        continue;
-      }
+    // for (const station of stations) {
+    //   if (station_id && station.id !== station_id) {
+    //     continue;
+    //   }
 
-      let stationObj = {
-        station_name: station.station_name,
-        date: date,
-        shifts: [],
-      };
+    //   let stationObj = {
+    //     station_name: station.station_name,
+    //     date: date,
+    //     shifts: [],
+    //   };
 
-      const configRes = await axios.get(
-        'http://103.186.47.133/inventory/station-devices',
-      );
-      const stationDevices = configRes.data?.data.find(
-        (s) => s.station_name === station.station_name,
-      );
+    //   const configRes = await axios.get(
+    //     'http://103.186.47.133/inventory/station-devices',
+    //   );
+    //   const stationDevices = configRes.data?.data.find(
+    //     (s) => s.station_name === station.station_name,
+    //   );
 
-      for (const deviceType of deviceTypes) {
-        const device = stationDevices?.equipments.find(
-          (equipment) => equipment.device_name === deviceType,
-        );
+    //   for (const deviceType of deviceTypes) {
+    //     const device = stationDevices?.equipments.find(
+    //       (equipment) => equipment.device_name === deviceType,
+    //     );
 
-        if (device) {
-          const sessions = await this.loginSessionRepository.find({
-            where: {
-              device_id: device.device_id,
-              created_at: Between(startDate, endDate),
-            },
-            select: [
-              'device_id',
-              'shift_id',
-              'user',
-              'no_of_cancelled',
-              'no_of_refund',
-              'total_amount',
-              'login_time',
-              'logout_time',
-              'cash_amount',
-              'upi_amount',
-              'no_of_tickets',
-              'no_of_tickets_cash',
-              'no_of_tickets_upi',
-            ],
-          });
+    //     if (device) {
+    //       const sessions = await this.loginSessionRepository.find({
+    //         where: {
+    //           device_id: device.device_id,
+    //           created_at: Between(startDate, endDate),
+    //         },
+    //         select: [
+    //           'device_id',
+    //           'shift_id',
+    //           'user',
+    //           'no_of_cancelled',
+    //           'no_of_refund',
+    //           'total_amount',
+    //           'login_time',
+    //           'logout_time',
+    //           'cash_amount',
+    //           'upi_amount',
+    //           'no_of_tickets',
+    //           'no_of_tickets_cash',
+    //           'no_of_tickets_upi',
+    //         ],
+    //       });
 
-          sessions.forEach((session, index) => {
-            let shift = {
-              name: `Shift ${index + 1}`,
-              shift_id: session.shift_id,
-              device_id: device.device_name,
-              total_amount: session.total_amount,
-              cash_amount: session.cash_amount,
-              upi_amount: session.upi_amount,
-              no_of_tickets: session.no_of_tickets,
-              no_of_tickets_cash: session.no_of_tickets_cash,
-              no_of_tickets_upi: session.no_of_tickets_upi,
-              no_of_refund: session.no_of_refund,
-              no_of_cancelled: session.no_of_cancelled,
-              login_time: session.login_time,
-              logout_time: session.logout_time,
-            };
+    //       sessions.forEach((session, index) => {
+    //         let shift = {
+    //           name: `Shift ${index + 1}`,
+    //           shift_id: session.shift_id,
+    //           device_id: device.device_name,
+    //           total_amount: session.total_amount,
+    //           cash_amount: session.cash_amount,
+    //           upi_amount: session.upi_amount,
+    //           no_of_tickets: session.no_of_tickets,
+    //           no_of_tickets_cash: session.no_of_tickets_cash,
+    //           no_of_tickets_upi: session.no_of_tickets_upi,
+    //           no_of_refund: session.no_of_refund,
+    //           no_of_cancelled: session.no_of_cancelled,
+    //           login_time: session.login_time,
+    //           logout_time: session.logout_time,
+    //         };
 
-            stationObj.shifts.push(shift);
-          });
-        }
-      }
+    //         stationObj.shifts.push(shift);
+    //       });
+    //     }
+    //   }
 
-      stationsArr.push(stationObj);
-    }
+    //   stationsArr.push(stationObj);
+    // }
 
-    return stationsArr;
+    // return stationsArr;
   }
 
-  async shipReport(payload: any) {
+  async shipReport(payload: ShiftReportDto) {
     try {
       const {
         station,
         user,
-        cash_amount,
         device_id,
+        shift_id,
+        qr_total_amount,
+        qr_cash_amount,
+        qr_upi_amount,
+        qr_no_of_tickets,
+        qr_no_of_tickets_cash,
+        qr_no_of_tickets_upi,
+        penalty_total_amount,
+        penalty_cash_amount,
+        penalty_upi_amount,
+        penalty_no_of_tickets,
+        penalty_no_of_tickets_cash,
+        penalty_qr_no_of_tickets_upi,
+        failed_transaction_amount,
+        no_of_failed_transactions,
+        failed_transaction_amount_cash,
+        failed_transaction_amount_upi,
+        no_of_failed_transactions_cash,
+        no_of_failed_transactions_upi,
+        total_card_entries,
+        total_card_exits,
         login_time,
         logout_time,
-        no_of_cancelled,
-        no_of_refund,
-        no_of_tickets,
-        no_of_tickets_cash,
-        no_of_tickets_upi,
-        fine_amount,
-        fine_count,
-        shift_id,
-        total_amount,
-        total_cancelled_amount,
-        total_refund_amount,
-        upi_amount,
       } = payload;
 
       // Check if a session with the same shift_id already exists
@@ -2900,29 +2910,40 @@ export class ReportsService {
         relations: ['station', 'user'],
       });
 
+      // Prepare the data object for create/update
+      const sessionData = {
+        station: { id: station },
+        user: { id: user },
+        device_id,
+        qr_total_amount,
+        qr_cash_amount,
+        qr_upi_amount,
+        qr_no_of_tickets,
+        qr_no_of_tickets_cash,
+        qr_no_of_tickets_upi,
+        penalty_total_amount,
+        penalty_cash_amount,
+        penalty_upi_amount,
+        penalty_no_of_tickets,
+        penalty_no_of_tickets_cash,
+        penalty_qr_no_of_tickets_upi,
+        failed_transaction_amount,
+        no_of_failed_transactions,
+        failed_transaction_amount_cash,
+        failed_transaction_amount_upi,
+        no_of_failed_transactions_cash,
+        no_of_failed_transactions_upi,
+        total_card_entries,
+        total_card_exits,
+        login_time,
+        logout_time,
+      };
+
       if (existingSession) {
         // Update existing session
         await this.loginSessionRepository.update(
           { shift_id },
-          {
-            station: { id: station },
-            user: { id: user },
-            cash_amount,
-            device_id,
-            login_time,
-            logout_time,
-            no_of_cancelled,
-            no_of_refund,
-            no_of_tickets,
-            no_of_tickets_cash,
-            no_of_tickets_upi,
-            fine_amount,
-            fine_count,
-            total_amount,
-            total_cancelled_amount,
-            total_refund_amount,
-            upi_amount,
-          }
+          sessionData
         );
 
         // Fetch the updated session
@@ -2940,24 +2961,8 @@ export class ReportsService {
       } else {
         // Create new session
         const session = this.loginSessionRepository.create({
-          station: { id: station },
-          user: { id: user },
-          cash_amount,
-          device_id,
-          login_time,
-          logout_time,
-          no_of_cancelled,
-          no_of_refund,
-          no_of_tickets,
-          no_of_tickets_cash,
-          no_of_tickets_upi,
-          fine_amount,
-          fine_count,
-          shift_id,
-          total_amount,
-          total_cancelled_amount,
-          total_refund_amount,
-          upi_amount,
+          ...sessionData,
+          shift_id, // Add shift_id for new records
         });
 
         const savedSession = await this.loginSessionRepository.save(session);
@@ -3007,21 +3012,31 @@ export class ReportsService {
           'device_id',
           'station',
           'shift_id',
-          'total_amount',
-          'cash_amount',
-          'upi_amount',
-          'no_of_tickets',
-          'no_of_tickets_cash',
-          'no_of_tickets_upi',
-          'no_of_refund',
-          'total_refund_amount',
-          'fine_amount',
-          'fine_count',
-          'no_of_cancelled',
-          'total_cancelled_amount',
+          'qr_total_amount',
+          'qr_cash_amount',
+          'qr_upi_amount',
+          'qr_no_of_tickets',
+          'qr_no_of_tickets_cash',
+          'qr_no_of_tickets_upi',
+          'penalty_total_amount',
+          'penalty_cash_amount',
+          'penalty_upi_amount',
+          'penalty_no_of_tickets',
+          'penalty_no_of_tickets_cash',
+          'penalty_qr_no_of_tickets_upi',
+          'failed_transaction_amount',
+          'no_of_failed_transactions',
+          'failed_transaction_amount_cash',
+          'failed_transaction_amount_upi',
+          'no_of_failed_transactions_cash',
+          'no_of_failed_transactions_upi',
+          'total_card_entries',
+          'total_card_exits',
           'login_time',
           'logout_time',
           'user',
+          'created_at',
+          'updated_at',
         ],
       });
       return { data: sessions };
@@ -3343,6 +3358,88 @@ export class ReportsService {
           card_amount: totalCard,
         }
       };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to generate station-wise penalty report',
+        error: error.message,
+      };
+    }
+  }
+
+  async commonTransactionReport(reportDto: PenaltyReportDto) {
+    try {
+      const { fromDate, toDate, stations: stationIds } = reportDto;
+
+     const [qrTransactions, penaltyTransactions, validationTransactions] = 
+      await Promise.all([
+        this.qrRepository.find({
+          // where: whereClause,
+          select: ['id', 'amount', "qr_ticket_no", "created_at"],
+          relations: {
+            transaction: {
+              station: true
+            }
+          }
+        }),
+        this.penaltyRepository.find({
+          // where: whereClause,
+          select: ['id', 'amount', "order_id", "bank_txn_id", "transaction_id", "shift_id", "device_id", "created_at"],
+          relations: 
+            ["stations"]
+          
+        }),
+        this.validationRecordsRepository.find({
+          // where: whereClause,
+          select: ['id', 'amount', "serialno", "deviceid", "operator_id", "created_at"],
+           relations: 
+            ["station"]
+        })
+      ]);
+
+
+     const transactions = [
+  ...qrTransactions.map((el) => ({
+    order_id: el?.transaction?.order_id,
+    amount: el?.amount,
+    transaction_id: el?.transaction?.transaction_id,
+    bank_transaction_id: el?.transaction?.bank_txn_id,
+    shift_id: el?.transaction?.shift_id,
+    device_id: el?.transaction?.device_id,
+    created_at: el?.created_at,
+    qr_ticket_no: el?.qr_ticket_no,
+    station_name: el?.transaction?.station?.station_name,
+    type: "QR"
+  })),
+  ...penaltyTransactions.map((el) => ({
+    order_id: el?.order_id,
+    amount: el?.amount,
+    transaction_id: el?.transaction_id,
+    bank_transaction_id: el?.bank_txn_id,
+    shift_id: el?.shift_id,
+    device_id: el?.device_id,
+    created_at: el?.created_at,
+    qr_ticket_no: el?.qr_ticket_no,
+    station_name: el?.stations?.station_name,
+    type: "PENALTY"
+  })),
+  ...validationTransactions.map((el) => ({
+    order_id: el?.serialno,
+    amount: el?.amount,
+    shift_id: el?.shift_id,
+    device_id: el?.deviceid,
+    created_at: el?.created_at,
+    station_name: el?.station?.station_name,
+    type: "VALIDATION"
+  })),
+];
+      return {
+        success: true,
+        message: 'Successfully generated station-wise penalty report',
+        transactions
+        
+        }
+      
     } catch (error) {
       return {
         success: false,
