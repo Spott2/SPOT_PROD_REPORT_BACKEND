@@ -29,6 +29,9 @@ import { CreateValidationRecordDto, UpdateValidationRecordDto, ValidationRecordF
 import { PenaltyReportDto, StationPenaltyReport } from './dto/penalty-report.dto';
 import { CommonTransactionReportDto, CommonTransactionItem } from './dto/common-transaction-report.dto';
 import { ShiftReportDto } from './dto/shift-report.dto';
+import { CreateEquipmentDto, UpdateEquipmentDto, EquipmentFilterDto } from './dto/equipment.dto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class ReportsService {
@@ -2998,7 +3001,7 @@ export class ReportsService {
       startDate.setUTCHours(0, 0, 0, 0);
       toDate.setUTCHours(23, 59, 59, 999);
       let where: any = {
-        login_time: Between(startDate, toDate),
+        created_at: Between(startDate, toDate),
       };
       if (station) {
         where.station = { id: station };
