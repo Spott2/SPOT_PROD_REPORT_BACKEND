@@ -1,7 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
-import { Repository, Between, ILike, Like, MoreThanOrEqual, LessThanOrEqual, In } from 'typeorm';
+import { Repository, Between, ILike, Like, MoreThanOrEqual, LessThanOrEqual, In, IsNull } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Equipment,
@@ -2993,19 +2993,43 @@ export class ReportsService {
   }) {
     try {
       const { fromDate, endDate, station } = payload;
-      const startDate = new Date(fromDate);
-      const toDate = new Date(endDate);
+      // const startDate = new Date(fromDate);
+      // const toDate = new Date(endDate);
 
-      // console.log(station);
+      // // console.log(station);
 
-      startDate.setUTCHours(0, 0, 0, 0);
-      toDate.setUTCHours(23, 59, 59, 999);
-      let where: any = {
-        created_at: Between(startDate, toDate),
-      };
-      if (station) {
-        where.station = { id: station };
-      }
+      // startDate.setUTCHours(0, 0, 0, 0);
+      // toDate.setUTCHours(23, 59, 59, 999);
+      // let where: any = {
+      //   created_at: Between(startDate, toDate),
+      // };
+      // if (station) {
+      //   where.station = { id: station };
+      // }
+        const startDate = new Date(fromDate);
+  const toDate = new Date(endDate);
+  startDate.setUTCHours(0, 0, 0, 0);
+  toDate.setUTCHours(23, 59, 59, 999);
+
+  const thirtyDaysBeforeToDate = new Date(toDate);
+  thirtyDaysBeforeToDate.setDate(toDate.getDate() - 30);
+
+  let where: any[] = [
+    {
+      login_time: Between(startDate, toDate),
+    },
+    {
+      logout_time: IsNull(),
+      login_time: Between(thirtyDaysBeforeToDate, toDate),
+    },
+  ];
+
+  if (station) {
+    where = where.map((condition) => ({
+      ...condition,
+      station: { id: station },
+    }));
+  }
       // console.log(where);
       const sessions = await this.loginSessionRepository.find({
         where,
