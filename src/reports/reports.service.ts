@@ -3016,8 +3016,8 @@ export class ReportsService {
 
   let where: any[] = [
     [{
-      login_time: Between(startDate, toDate),
-      logout_time: Between(startDate, toDate),
+      login_time: Between(startDate, toDate)},
+     { logout_time: Between(startDate, toDate)
     }],
     {
       logout_time: IsNull(),
