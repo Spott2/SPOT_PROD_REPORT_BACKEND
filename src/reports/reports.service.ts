@@ -3015,9 +3015,10 @@ export class ReportsService {
   thirtyDaysBeforeToDate.setDate(toDate.getDate() - 30);
 
   let where: any[] = [
-    {
+    [{
       login_time: Between(startDate, toDate),
-    },
+      logout_time: Between(startDate, toDate),
+    }],
     {
       logout_time: IsNull(),
       login_time: Between(thirtyDaysBeforeToDate, toDate),
