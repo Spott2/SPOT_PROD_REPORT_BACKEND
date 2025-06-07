@@ -2905,6 +2905,11 @@ export class ReportsService {
         total_card_exits,
         login_time,
         logout_time,
+        total_qr_entries,
+        total_qr_exits,
+        total_shift_cash_amount,
+        total_shift_upi_amount,
+        total_shift_amount,
       } = payload;
 
       // Check if a session with the same shift_id already exists
@@ -2940,6 +2945,11 @@ export class ReportsService {
         total_card_exits,
         login_time,
         logout_time,
+        total_qr_entries,
+        total_qr_exits,
+        total_shift_cash_amount,
+        total_shift_upi_amount,
+        total_shift_amount,
       };
 
       if (existingSession) {
@@ -3062,6 +3072,11 @@ export class ReportsService {
           'total_card_exits',
           'login_time',
           'logout_time',
+          'total_qr_entries',
+          'total_qr_exits',
+          'total_shift_cash_amount',
+          'total_shift_upi_amount',
+          'total_shift_amount',
           'user',
           'created_at',
           'updated_at',

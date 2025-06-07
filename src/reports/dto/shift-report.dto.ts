@@ -101,4 +101,24 @@ export class ShiftReportDto {
   @IsDate()
   @IsOptional()
   logout_time?: Date;
+
+  @IsNumber()
+  @IsOptional()
+  total_qr_entries?: number;
+
+  @IsNumber()
+  @IsOptional()
+  total_qr_exits?: number;
+
+  @IsNumber()
+  @IsOptional()
+  total_shift_cash_amount?: number;
+
+  @IsNumber()
+  @IsOptional()
+  total_shift_upi_amount?: number;
+
+  @IsNumber()
+  @IsOptional()
+  total_shift_amount?: number;
 }
