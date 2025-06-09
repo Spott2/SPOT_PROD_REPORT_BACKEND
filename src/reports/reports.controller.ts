@@ -17,7 +17,7 @@ import { LoginSessionInput } from './commonTypes';
 import { CreateValidationRecordDto, UpdateValidationRecordDto, ValidationRecordFilterDto } from './dto/validation-records.dto';
 import { PenaltyReportDto } from './dto/penalty-report.dto';
 import { CommonTransactionReportDto } from './dto/common-transaction-report.dto';
-import { ShiftReportDto } from './dto/shift-report.dto';
+import { ShiftReportDto, FindShiftReportDto } from './dto/shift-report.dto';
 
 @Controller('reports')
 export class ReportsController {
@@ -597,9 +597,7 @@ export class ReportsController {
   }
 
   @Post('find-shift-report')
-  findShiftReport(
-    @Body() body: { fromDate: Date; endDate: Date; station: string },
-  ) {
+  findShiftReport(@Body() body: FindShiftReportDto) {
     return this.reportsService.findShiftReport(body);
   }
 
@@ -619,7 +617,15 @@ export class ReportsController {
   }
 
   // ValidationRecords endpoints
-  
 
- 
+  // Station dropdown endpoints
+  @Get('stations')
+  getAllStations() {
+    return this.reportsService.getAllStations();
+  }
+
+  @Get('stations/active')
+  getActiveStations() {
+    return this.reportsService.getActiveStations();
+  }
 }

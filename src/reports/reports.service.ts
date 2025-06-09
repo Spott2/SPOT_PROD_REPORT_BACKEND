@@ -28,7 +28,7 @@ import { LoginSessionInput } from './commonTypes';
 import { CreateValidationRecordDto, UpdateValidationRecordDto, ValidationRecordFilterDto } from './dto/validation-records.dto';
 import { PenaltyReportDto, StationPenaltyReport } from './dto/penalty-report.dto';
 import { CommonTransactionReportDto, CommonTransactionItem } from './dto/common-transaction-report.dto';
-import { ShiftReportDto } from './dto/shift-report.dto';
+import { ShiftReportDto, FindShiftReportDto } from './dto/shift-report.dto';
 import { CreateEquipmentDto, UpdateEquipmentDto, EquipmentFilterDto } from './dto/equipment.dto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -3000,11 +3000,7 @@ export class ReportsService {
     }
   }
 
-  async findShiftReport(payload: {
-    fromDate: Date;
-    endDate: Date;
-    station: string;
-  }) {
+  async findShiftReport(payload: FindShiftReportDto) {
     try {
       const { fromDate, endDate, station } = payload;
       // const startDate = new Date(fromDate);
@@ -3029,16 +3025,18 @@ export class ReportsService {
   thirtyDaysBeforeToDate.setDate(toDate.getDate() - 30);
 
   let where: any[] = [
-    [{
-      login_time: Between(startDate, toDate)},
-     { logout_time: Between(startDate, toDate)
-    }],
+    {
+      login_time: Between(startDate, toDate)
+    },
+    {
+      logout_time: Between(startDate, toDate)
+    },
     {
       logout_time: IsNull(),
       login_time: Between(thirtyDaysBeforeToDate, toDate),
     },
   ];
-
+console.log(station)
   if (station) {
     where = where.map((condition) => ({
       ...condition,
@@ -3047,6 +3045,7 @@ export class ReportsService {
   }
       // console.log(where);
       const sessions = await this.loginSessionRepository.find({
+        // where: {station:  true},
         where,
         relations: ['station', 'user'],
         select: [
@@ -3747,5 +3746,50 @@ export class ReportsService {
       message: 'Validation records created successfully',
       data: results,
     };
+  }
+
+  // Get all stations for dropdown
+  async getAllStations() {
+    try {
+      const stations = await this.stationRepository.find({
+        select: ['id', 'station_name', 'is_active'],
+        order: { station_name: 'ASC' },
+      });
+
+      return {
+        success: true,
+        message: 'Stations retrieved successfully',
+        data: stations,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve stations',
+        error: error.message,
+      };
+    }
+  }
+
+  // Get active stations only for dropdown
+  async getActiveStations() {
+    try {
+      const stations = await this.stationRepository.find({
+        where: { is_active: true },
+        select: ['id', 'station_name'],
+        order: { station_name: 'ASC' },
+      });
+
+      return {
+        success: true,
+        message: 'Active stations retrieved successfully',
+        data: stations,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve active stations',
+        error: error.message,
+      };
+    }
   }
 }

@@ -122,3 +122,25 @@ export class ShiftReportDto {
   @IsOptional()
   total_shift_amount?: number;
 }
+
+export class FindShiftReportDto {
+  @IsDate()
+  @IsOptional()
+  fromDate?: Date;
+
+  @IsDate()
+  @IsOptional()
+  endDate?: Date;
+
+  @IsString()
+  @IsOptional()
+  station?: string;
+
+  @IsNumber()
+  @IsOptional()
+  page?: number;
+
+  @IsNumber()
+  @IsOptional()
+  limit?: number;
+}
