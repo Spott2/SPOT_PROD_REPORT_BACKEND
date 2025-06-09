@@ -1,8 +1,8 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
-import { Repository, Between, ILike, Like, MoreThanOrEqual, LessThanOrEqual, In, IsNull } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Between, ILike, Like, MoreThanOrEqual, LessThanOrEqual, In, IsNull, DataSource } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import {
   Equipment,
   Penalty,
@@ -36,6 +36,10 @@ import * as path from 'path';
 @Injectable()
 export class ReportsService {
   constructor(
+
+    @InjectDataSource()
+    private dataSource: DataSource,
+
     @InjectRepository(TransactionQr)
     private transactionRepository: Repository<TransactionQr>,
 
@@ -3491,6 +3495,189 @@ export class ReportsService {
       };
     }
   }
+
+
+   getTransactionsWithPagination = async (reportDto: CommonTransactionReportDto) => {
+  const { fromDate, toDate, stations: stationIds, deviceId, type = 'ALL', page = 1, limit = 10 } = reportDto;
+
+
+  console.log(type)
+
+  // Build where conditions
+  let dateCondition = '';
+  let stationCondition = '';
+  let deviceCondition = '';
+  const params: any[] = [];
+  let paramIndex = 1;
+
+  if (fromDate && toDate) {
+    dateCondition = `AND created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+    params.push(fromDate, toDate);
+    paramIndex += 2;
+  }
+
+  if (stationIds && stationIds.length > 0) {
+    const placeholders = stationIds.map(() => `$${paramIndex++}`).join(',');
+    stationCondition = `AND station_id IN (${placeholders})`;
+    params.push(...stationIds);
+  }
+
+  if (deviceId) {
+    deviceCondition = `AND device_id = $${paramIndex}`;
+    params.push(deviceId);
+    paramIndex++;
+  }
+
+  const offset = (page - 1) * limit;
+
+  // Build UNION query parts based on type filter
+  let unionParts = [];
+
+  // QR Transactions
+  if (type === 'ALL' || type === 'QR') {
+    unionParts.push(`
+      SELECT
+        t.order_id,
+        q.amount,
+        t.transaction_id,
+        t.bank_txn_id as bank_transaction_id,
+        t.shift_id,
+        t.device_id,
+        q.created_at,
+        q.qr_ticket_no,
+        s.station_name,
+        'QR' as type,
+        NULL as serialno,
+        NULL as deviceid_validation,
+        NULL as operator_id_validation
+      FROM qr q
+      INNER JOIN transaction t ON q.transaction_id = t.id
+      INNER JOIN station s ON t.station_id = s.id
+      WHERE 1=1 ${dateCondition.replace('created_at', 'q.created_at')}
+        ${stationCondition.replace('station_id', 't.station_id')}
+        ${deviceCondition.replace('device_id', 't.device_id::varchar')}
+    `);
+  }
+
+  // Penalty Transactions
+  if (type === 'ALL' || type === 'PENALTY') {
+    unionParts.push(`
+      SELECT
+        p.order_id,
+        p.amount,
+        p.transaction_id,
+        p.bank_txn_id as bank_transaction_id,
+        p.shift_id,
+        p.device_id::varchar,
+        p.created_at,
+        p.qr_ticket_no,
+        s.station_name,
+        'PENALTY' as type,
+        NULL as serialno,
+        NULL as deviceid_validation,
+        NULL as operator_id_validation
+      FROM penalty p
+      INNER JOIN station s ON p.station_id = s.id
+      WHERE 1=1 ${dateCondition.replace('created_at', 'p.created_at')}
+        ${stationCondition.replace('station_id', 'p.station_id')}
+        ${deviceCondition.replace('device_id', 'p.device_id::varchar')}
+    `);
+  }
+
+  // Validation Transactions
+  if (type === 'ALL' || type === 'VALIDATION') {
+    unionParts.push(`
+      SELECT
+        vr.serialno as order_id,
+        vr.amount,
+        NULL as transaction_id,
+        NULL as bank_transaction_id,
+        vr.shift_id,
+        vr.deviceid as device_id,
+        vr.created_at,
+        NULL as qr_ticket_no,
+        s.station_name,
+        'VALIDATION' as type,
+        vr.serialno,
+        vr.deviceid as deviceid_validation,
+        vr.operator_id as operator_id_validation
+      FROM validation_records vr
+      INNER JOIN station s ON vr.station_id = s.id
+      WHERE 1=1 ${dateCondition.replace('created_at', 'vr.created_at')}
+        ${stationCondition.replace('station_id', 'vr.station_id')}
+        ${deviceCondition.replace('device_id', 'vr.deviceid::varchar')}
+    `);
+  }
+
+  // If no valid type or no union parts, return empty result
+  if (unionParts.length === 0) {
+    return {
+      data: [],
+      pagination: {
+        currentPage: page,
+        totalPages: 0,
+        totalItems: 0,
+        itemsPerPage: limit,
+        hasNextPage: false,
+        hasPreviousPage: false
+      }
+    };
+  }
+
+  const unionQuery = `
+    WITH combined_transactions AS (
+      ${unionParts.join(' UNION ALL ')}
+    ),
+    paginated_results AS (
+      SELECT *
+      FROM combined_transactions
+      ORDER BY created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    ),
+    total_count AS (
+      SELECT COUNT(*) as total
+      FROM combined_transactions
+    )
+    SELECT 
+      pr.*,
+      tc.total
+    FROM paginated_results pr
+    CROSS JOIN total_count tc
+    ORDER BY pr.created_at DESC;
+  `;
+
+  params.push(limit, offset);
+
+  const result = await this.dataSource.query(unionQuery, params);
+  
+  const transactions = result.map(row => ({
+    order_id: row.order_id,
+    amount: row.amount,
+    transaction_id: row.transaction_id,
+    bank_transaction_id: row.bank_transaction_id,
+    shift_id: row.shift_id,
+    device_id: row.device_id,
+    created_at: row.created_at,
+    qr_ticket_no: row.qr_ticket_no,
+    station_name: row.station_name,
+    type: row.type
+  }));
+
+  const total = result.length > 0 ? parseInt(result[0].total) : 0;
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    data: transactions,
+    pagination: {
+      currentPage: page,
+      totalPages,
+      totalItems: total,
+      itemsPerPage: limit,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1
+    }
+  };
+};
 
   /**
    * Get total entry and exit count from validation records for current date

@@ -13,6 +13,10 @@ export class CommonTransactionReportDto {
   @IsOptional()
   stations?: number[];
 
+  @IsString()
+  @IsOptional()
+  deviceId?: string;
+
   @IsNumber()
   @IsOptional()
   page?: number;
@@ -25,13 +29,6 @@ export class CommonTransactionReportDto {
   @IsOptional()
   type?: string; // 'QR', 'PENALTY', 'VALIDATION' or 'ALL'
 
-  @IsString()
-  @IsOptional()
-  sortBy?: string; // 'created_at', 'amount', etc.
-
-  @IsString()
-  @IsOptional()
-  sortOrder?: 'ASC' | 'DESC';
 }
 
 export interface CommonTransactionItem {

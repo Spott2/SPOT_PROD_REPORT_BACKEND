@@ -560,7 +560,7 @@ export class ReportsController {
 
   @Post('common-transaction-report')
   getCommonTransactionReport(@Body() reportDto: CommonTransactionReportDto) {
-    return this.reportsService.commonTransactionReport(reportDto);
+    return this.reportsService.getTransactionsWithPagination(reportDto);
   }
 
   @Get('validation-records/:id')
@@ -588,7 +588,7 @@ export class ReportsController {
 
   @Post('common-transaction-report')
   commonTransactionReport(@Body() reportDto: PenaltyReportDto) {
-    return this.reportsService.commonTransactionReport(reportDto);
+    return this.reportsService.getTransactionsWithPagination(reportDto);
   }
 
   @Post('shift-report')
